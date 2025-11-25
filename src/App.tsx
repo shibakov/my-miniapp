@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import LogFoodPage from "./pages/LogFoodPage";
+import SplashScreen from "./components/SplashScreen";
 
 declare global {
   interface Window {
@@ -19,9 +20,13 @@ function App() {
   }, []);
 
   return (
-    <div className="w-full min-h-screen bg-gray-100">
-      <LogFoodPage />
-    </div>
+    <>
+      <SplashScreen />
+
+      <div className="w-full min-h-screen bg-gray-100">
+        <LogFoodPage />
+      </div>
+    </>
   );
 }
 
