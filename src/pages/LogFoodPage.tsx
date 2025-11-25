@@ -1,0 +1,676 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { ChevronDown } from "lucide-react";
+
+const API_SEARCH =
+  "https://calroiesinfoms-production.up.railway.app/api/search";
+const API_LOG = "https://shibakovk.app.n8n.cloud/webhook/food_log";
+
+const DRAFT_KEY = "draft_selected_products_v2";
+
+type MealType = "Breakfast" | "Lunch" | "Dinner" | "Snack";
+
+interface SearchResult {
+  id?: string;
+  product: string;
+  brand?: string | null;
+  source?: string;
+  kcal_100?: number;
+  protein_100?: number;
+  fat_100?: number;
+  carbs_100?: number;
+}
+
+interface SelectedItem {
+  id: string;
+  product: string;
+  quantity: number;
+  source?: string;
+  kcal_100?: number;
+  protein_100?: number;
+  fat_100?: number;
+  carbs_100?: number;
+}
+
+type SaveStatus = "idle" | "success" | "error";
+
+declare global {
+  interface Window {
+    Telegram?: {
+      WebApp?: any;
+    };
+  }
+}
+
+const GRAM_OPTIONS: number[] = Array.from({ length: 50 }, (_, i) => (i + 1) * 10); // 10…500
+
+function getMealLabel(mealType: MealType) {
+  switch (mealType) {
+    case "Breakfast":
+      return "Завтрак";
+    case "Lunch":
+      return "Обед";
+    case "Dinner":
+      return "Ужин";
+    case "Snack":
+      return "Перекус";
+    default:
+      return mealType;
+  }
+}
+
+export default function LogFoodPage() {
+  const [mealType, setMealType] = useState<MealType>("Snack");
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<SearchResult[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [selected, setSelected] = useState<SelectedItem[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+  const [pickerItemId, setPickerItemId] = useState<string | null>(null);
+
+  const searchTimeoutRef = useRef<number | null>(null);
+
+  const isTelegram =
+    typeof window !== "undefined" && !!window.Telegram?.WebApp;
+
+  // ---------- Загрузка черновика ----------
+  useEffect(() => {
+    try {
+      const saved = typeof window !== "undefined" ? localStorage.getItem(DRAFT_KEY) : null;
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          setSelected(parsed);
+        }
+      }
+    } catch (e) {
+      console.warn("Не удалось загрузить черновик", e);
+    }
+  }, []);
+
+  // ---------- Поиск продуктов с дебаунсом ----------
+  const runSearch = useCallback(async (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      setResults([]);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await fetch(
+        `${API_SEARCH}?query=${encodeURIComponent(trimmed)}`
+      );
+      const data = await res.json();
+      const items = (data?.results || []) as SearchResult[];
+      setResults(items);
+    } catch (e) {
+      console.error("Ошибка поиска:", e);
+      setResults([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  function handleQueryChange(value: string) {
+    setQuery(value);
+    setSaveStatus("idle");
+
+    if (searchTimeoutRef.current) {
+      window.clearTimeout(searchTimeoutRef.current);
+    }
+
+    if (!value.trim()) {
+      setResults([]);
+      return;
+    }
+
+    searchTimeoutRef.current = window.setTimeout(() => {
+      runSearch(value);
+    }, 300) as unknown as number;
+  }
+
+  // ---------- Добавление продукта ----------
+  function handleSelectProduct(item: SearchResult) {
+    const id = `${item.id ?? item.product}-${Date.now()}`;
+
+    setSelected((prev) => [
+      ...prev,
+      {
+        id,
+        product: item.product,
+        quantity: 0,
+        source: item.source,
+        kcal_100: item.kcal_100,
+        protein_100: item.protein_100,
+        fat_100: item.fat_100,
+        carbs_100: item.carbs_100,
+      },
+    ]);
+
+    setResults([]);
+    setQuery("");
+    setSaveStatus("idle");
+  }
+
+  // ---------- Обновление граммовки ----------
+  function handleQuantityChange(id: string, value: string) {
+    const num = Number(value);
+    setSelected((prev) =>
+      prev.map((item) =>
+        item.id === id
+          ? { ...item, quantity: Number.isNaN(num) ? 0 : num }
+          : item
+      )
+    );
+    setSaveStatus("idle");
+  }
+
+  function handleQuickAdd(id: string, grams: number) {
+    setSelected((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, quantity: grams } : item))
+    );
+    setSaveStatus("idle");
+  }
+
+  // ---------- Сохранение через picker ----------
+  function handlePickGrams(id: string, grams: number) {
+    handleQuickAdd(id, grams);
+    setPickerItemId(null);
+  }
+
+  // ---------- Удаление продукта ----------
+  function handleRemove(id: string) {
+    setSelected((prev) => prev.filter((item) => item.id !== id));
+    setSaveStatus("idle");
+  }
+
+  // ---------- Можно ли сохранить ----------
+  const canSave = useMemo(() => {
+    if (!selected.length) return false;
+    return selected.every((item) => item.quantity && item.quantity > 0);
+  }, [selected]);
+
+  // ---------- Подсчёт суммарных КБЖУ ----------
+  const totals = useMemo(() => {
+    let kcal = 0;
+    let protein = 0;
+    let fat = 0;
+    let carbs = 0;
+
+    for (const item of selected) {
+      if (!item.quantity) continue;
+
+      const ratio = item.quantity / 100;
+      if (item.kcal_100 != null) kcal += item.kcal_100 * ratio;
+      if (item.protein_100 != null) protein += item.protein_100 * ratio;
+      if (item.fat_100 != null) fat += item.fat_100 * ratio;
+      if (item.carbs_100 != null) carbs += item.carbs_100 * ratio;
+    }
+
+    return {
+      kcal: Math.round(kcal),
+      protein: Math.round(protein),
+      fat: Math.round(fat),
+      carbs: Math.round(carbs),
+    };
+  }, [selected]);
+
+  // ---------- Сохранение ----------
+  const handleSave = useCallback(async () => {
+    if (!canSave || saving) return;
+
+    setSaving(true);
+    setSaveStatus("idle");
+
+    const logInfo = selected
+      .map((s) => JSON.stringify({ product: s.product, quantity: s.quantity }))
+      .join("\n");
+
+    const payload = {
+      meal_type: mealType,
+      request_type: "ready to insert",
+      log_info: logInfo,
+    };
+
+    try {
+      const res = await fetch(API_LOG, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
+      setSaveStatus("success");
+
+      // очищаем черновик и состояние
+      try {
+        localStorage.removeItem(DRAFT_KEY);
+      } catch {
+        // ignore
+      }
+
+      setSelected([]);
+      setQuery("");
+      setResults([]);
+      setPickerItemId(null);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+
+      try {
+        const tg = window.Telegram?.WebApp;
+        tg?.MainButton?.hide();
+        tg?.showAlert?.("🍽️ Приём пищи сохранён!");
+      } catch {
+        // ignore
+      }
+    } catch (e) {
+      console.error("Ошибка при сохранении:", e);
+      setSaveStatus("error");
+    } finally {
+      setSaving(false);
+    }
+  }, [canSave, saving, selected, mealType]);
+
+  // ---------- Telegram MainButton ----------
+  useEffect(() => {
+    const tg = window.Telegram?.WebApp;
+    if (!tg) return;
+
+    const mainButton = tg.MainButton;
+
+    if (canSave) {
+      mainButton.setText(saving ? "Сохраняю..." : "Сохранить приём");
+      mainButton.show();
+      mainButton.enable();
+    } else {
+      mainButton.hide();
+    }
+
+    const onClick = () => {
+      handleSave();
+    };
+
+    mainButton.onClick(onClick);
+
+    return () => {
+      mainButton.offClick(onClick);
+    };
+  }, [canSave, saving, handleSave]);
+
+  // ---------- Авто-сохранение черновика ----------
+  useEffect(() => {
+    try {
+      if (selected.length === 0) {
+        localStorage.removeItem(DRAFT_KEY);
+      } else {
+        localStorage.setItem(DRAFT_KEY, JSON.stringify(selected));
+      }
+    } catch (e) {
+      console.warn("Не удалось сохранить черновик", e);
+    }
+  }, [selected]);
+
+  // ---------- UI ----------
+  return (
+    <div className="flex flex-col min-h-screen bg-slate-50 pb-20">
+      {/* Header */}
+      <header className="px-4 pt-4 pb-3 bg-white shadow-sm">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex flex-col">
+            <h1 className="text-lg font-semibold tracking-tight">
+              Добавить приём пищи
+            </h1>
+            <span className="text-[11px] text-slate-500">
+              Лог питания · {new Date().toLocaleDateString("ru-RU", {
+                day: "2-digit",
+                month: "2-digit",
+              })}
+            </span>
+          </div>
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] text-slate-600">
+            {new Date().toLocaleTimeString("ru-RU", {
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </span>
+        </div>
+
+        {/* Переключатель типа приёма */}
+        <div className="inline-flex w-full rounded-full bg-slate-100 p-1">
+          {(["Breakfast", "Lunch", "Dinner", "Snack"] as MealType[]).map(
+            (type) => {
+              const active = mealType === type;
+              return (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => setMealType(type)}
+                  className={[
+                    "flex-1 rounded-full px-3 py-1.5 text-xs font-medium transition-all",
+                    active
+                      ? "bg-blue-600 text-white shadow-sm"
+                      : "text-slate-600",
+                  ].join(" ")}
+                >
+                  {getMealLabel(type)}
+                </button>
+              );
+            }
+          )}
+        </div>
+      </header>
+
+      {/* Основной контент */}
+      <main className="flex-1 px-4 pt-4 overflow-y-auto space-y-4">
+        {/* Поиск */}
+        <section>
+          <label className="block text-xs font-medium text-slate-600 mb-1.5">
+            Поиск продукта
+          </label>
+          <div className="relative">
+            <Input
+              value={query}
+              onChange={(e) => handleQueryChange(e.target.value)}
+              placeholder="Начни вводить название…"
+              className="rounded-2xl border-slate-200 bg-white pr-10 text-sm"
+            />
+            {loading && (
+              <div className="absolute inset-y-0 right-3 flex items-center">
+                <span className="h-4 w-4 animate-spin rounded-full border-[2px] border-slate-300 border-t-blue-500" />
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* Результаты поиска */}
+        {!!results.length && (
+          <Card className="border-slate-200 shadow-sm">
+            <div className="px-3 pt-2 pb-1 text-[11px] text-slate-500 uppercase tracking-wide">
+              Результаты
+            </div>
+            <ScrollArea className="max-h-64">
+              <div className="py-1">
+                {results.map((item) => (
+                  <button
+                    key={item.id ?? item.product}
+                    type="button"
+                    onClick={() => handleSelectProduct(item)}
+                    className="w-full px-3 py-2 text-left hover:bg-slate-50 transition-colors flex flex-col gap-0.5"
+                  >
+                    <div className="text-sm font-medium text-slate-900">
+                      {item.product}
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <div className="text-[11px] text-slate-500">
+                        {item.brand && <span>{item.brand} · </span>}
+                        {item.kcal_100 != null && (
+                          <span>{Math.round(item.kcal_100)} ккал / 100 г</span>
+                        )}
+                      </div>
+                      {item.source && (
+                        <span className="text-[10px] uppercase text-slate-400">
+                          {item.source}
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </ScrollArea>
+          </Card>
+        )}
+
+        {/* Выбранные продукты */}
+        <section>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-sm font-semibold text-slate-800">
+              Выбранные продукты
+            </h2>
+            {selected.length > 0 && (
+              <span className="text-[11px] text-slate-500">
+                {selected.length} шт.
+              </span>
+            )}
+          </div>
+
+          {selected.length === 0 && (
+            <Card className="border-dashed border-slate-300 bg-slate-50/60 text-xs text-slate-500 px-3 py-4 shadow-none">
+              Пока ничего не выбрано. Найди продукт выше и добавь его в приём
+              пищи.
+            </Card>
+          )}
+
+          <div className="space-y-3">
+            {selected.map((item) => {
+              const ratio = item.quantity / 100;
+              const kcal = item.kcal_100
+                ? Math.round(item.kcal_100 * ratio)
+                : null;
+              const protein = item.protein_100
+                ? Math.round(item.protein_100 * ratio)
+                : null;
+              const fat = item.fat_100
+                ? Math.round(item.fat_100 * ratio)
+                : null;
+              const carbs = item.carbs_100
+                ? Math.round(item.carbs_100 * ratio)
+                : null;
+
+              const hasQuantity = item.quantity > 0;
+
+              return (
+                <Card
+                  key={item.id}
+                  className={[
+                    "border px-3 py-2.5 rounded-2xl transition-colors",
+                    hasQuantity
+                      ? "border-slate-200 bg-white"
+                      : "border-amber-200 bg-amber-50/60",
+                  ].join(" ")}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1">
+                      <div className="text-sm font-medium text-slate-900">
+                        {item.product}
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        {item.source && (
+                          <span className="text-[10px] uppercase text-slate-400">
+                            {item.source}
+                          </span>
+                        )}
+                        {!hasQuantity && (
+                          <span className="text-[10px] text-amber-600 bg-amber-100 rounded-full px-2 py-0.5">
+                            Укажи граммы
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleRemove(item.id)}
+                      className="h-7 px-2 text-[11px] text-slate-400 hover:text-red-500 hover:bg-red-50"
+                    >
+                      Удалить
+                    </Button>
+                  </div>
+
+                  <div className="mt-2 flex flex-col gap-2">
+                    <div className="flex items-center gap-2">
+                      <Popover
+                        open={pickerItemId === item.id}
+                        onOpenChange={(open) =>
+                          setPickerItemId(open ? item.id : null)
+                        }
+                      >
+                        <PopoverTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="h-9 rounded-full border-slate-300 bg-slate-50 px-3 text-xs font-medium flex items-center gap-1"
+                          >
+                            <span>
+                              {item.quantity > 0
+                                ? `${item.quantity} г`
+                                : "Выбрать граммы"}
+                            </span>
+                            <ChevronDown className="h-3 w-3 opacity-60" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-40 p-0" align="start">
+                          <div className="px-3 pt-2 pb-1 text-[11px] text-slate-500">
+                            Граммовка
+                          </div>
+                          <ScrollArea className="h-56">
+                            <div className="grid grid-cols-3 gap-1 p-2">
+                              {GRAM_OPTIONS.map((g) => (
+                                <Button
+                                  key={g}
+                                  type="button"
+                                  variant={
+                                    item.quantity === g ? "secondary" : "ghost"
+                                  }
+                                  className="h-8 text-[11px] px-0"
+                                  onClick={() => handlePickGrams(item.id, g)}
+                                >
+                                  {g}
+                                </Button>
+                              ))}
+                            </div>
+                          </ScrollArea>
+                        </PopoverContent>
+                      </Popover>
+
+                      <Input
+                        type="number"
+                        inputMode="numeric"
+                        min={0}
+                        placeholder="или ввести вручную"
+                        value={item.quantity || ""}
+                        onChange={(e) =>
+                          handleQuantityChange(item.id, e.target.value)
+                        }
+                        className="w-32 h-9 rounded-xl border-slate-300 text-right text-xs"
+                      />
+                      <span className="text-xs text-slate-500">г</span>
+                    </div>
+
+                    <div className="flex flex-wrap gap-1">
+                      {[50, 100, 150, 200].map((g) => (
+                        <Button
+                          key={g}
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 rounded-full border border-slate-200 bg-slate-50 px-2 text-[10px] text-slate-600 hover:bg-slate-100"
+                          onClick={() => handleQuickAdd(item.id, g)}
+                        >
+                          {g} г
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {(kcal != null ||
+                    protein != null ||
+                    fat != null ||
+                    carbs != null) && (
+                    <div className="mt-2 text-[11px] text-slate-600 flex flex-wrap gap-x-4 gap-y-1">
+                      {kcal != null && <span>≈ {kcal} ккал</span>}
+                      {protein != null && <span>Б {protein} г</span>}
+                      {fat != null && <span>Ж {fat} г</span>}
+                      {carbs != null && <span>У {carbs} г</span>}
+                    </div>
+                  )}
+                </Card>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* Итог по КБЖУ */}
+        {selected.length > 0 && (
+          <Card className="mt-1 border-slate-200 bg-white px-3 py-2.5 rounded-2xl shadow-sm">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs font-semibold text-slate-800">
+                Итого за приём
+              </span>
+              <span className="text-[11px] text-slate-500">
+                {getMealLabel(mealType)}
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-600">
+              <span>
+                <span className="font-semibold">Ккал:</span> {totals.kcal}
+              </span>
+              <span>
+                <span className="font-semibold">Б:</span> {totals.protein} г
+              </span>
+              <span>
+                <span className="font-semibold">Ж:</span> {totals.fat} г
+              </span>
+              <span>
+                <span className="font-semibold">У:</span> {totals.carbs} г
+              </span>
+            </div>
+          </Card>
+        )}
+
+        {/* Статус сохранения */}
+        {saveStatus === "success" && (
+          <div className="mt-2 rounded-2xl bg-emerald-50 border border-emerald-200 px-3 py-2.5 text-xs text-emerald-800">
+            Приём пищи сохранён в лог.
+          </div>
+        )}
+        {saveStatus === "error" && (
+          <div className="mt-2 rounded-2xl bg-red-50 border border-red-200 px-3 py-2.5 text-xs text-red-700">
+            Ошибка при сохранении. Попробуй ещё раз.
+          </div>
+        )}
+      </main>
+
+      {/* Нижняя панель навигации + кнопка для веб-версии */}
+      <footer className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200">
+        <div className="flex justify-around px-2 pt-1 pb-1 text-[11px]">
+          <div className="flex flex-col items-center text-blue-600">
+            <span className="font-medium">Приём</span>
+          </div>
+          <div className="flex flex-col items-center text-slate-400">
+            <span>История</span>
+          </div>
+          <div className="flex flex-col items-center text-slate-400">
+            <span>Аналитика</span>
+          </div>
+        </div>
+
+        {/* Кнопка сохранения для случая, когда НЕ Telegram */}
+        {!isTelegram && (
+          <div className="px-3 pb-3 pt-1 bg-white">
+            <Button
+              type="button"
+              disabled={!canSave || saving}
+              onClick={handleSave}
+              className="w-full h-11 rounded-2xl text-sm font-semibold"
+            >
+              {saving ? "Сохраняю..." : "Сохранить приём"}
+            </Button>
+          </div>
+        )}
+      </footer>
+    </div>
+  );
+}
