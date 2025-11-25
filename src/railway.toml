@@ -1,0 +1,9 @@
+[build]
+builder = "NIXPACKS"
+
+[deploy]
+startCommand = "npm run preview"
+
+[nixpacks]
+# Главная правка → отключаем tsc
+phases.build.cmds = ["npm run build"]

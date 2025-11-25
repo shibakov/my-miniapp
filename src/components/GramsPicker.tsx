@@ -46,7 +46,10 @@ export default function GramsPicker({ value, onChange, onClose }: Props) {
 
         {/* Wheel container */}
         <div className="relative h-48 overflow-hidden">
-          <div className="absolute inset-0 pointer-events-none border-y border-gray-300" style={{ top: "50%", marginTop: -22, height: 44 }}></div>
+          <div
+            className="absolute inset-0 pointer-events-none border-y border-gray-300"
+            style={{ top: "50%", marginTop: -22, height: 44 }}
+          ></div>
 
           <div className="overflow-y-scroll h-full snap-y snap-mandatory no-scrollbar">
             {gramsOptions.map((g) => (
