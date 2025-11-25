@@ -3,12 +3,8 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { ChevronDown } from "lucide-react";
+import GramsPicker from "@/components/GramsPicker";
+import { Trash2 } from "lucide-react";
 
 const API_SEARCH =
   "https://calroiesinfoms-production.up.railway.app/api/search";
@@ -50,8 +46,6 @@ declare global {
   }
 }
 
-const GRAM_OPTIONS: number[] = Array.from({ length: 50 }, (_, i) => (i + 1) * 10); // 10…500
-
 function getMealLabel(mealType: MealType) {
   switch (mealType) {
     case "Breakfast":
@@ -85,7 +79,8 @@ export default function LogFoodPage() {
   // ---------- Загрузка черновика ----------
   useEffect(() => {
     try {
-      const saved = typeof window !== "undefined" ? localStorage.getItem(DRAFT_KEY) : null;
+      const saved =
+        typeof window !== "undefined" ? localStorage.getItem(DRAFT_KEY) : null;
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
@@ -180,12 +175,6 @@ export default function LogFoodPage() {
       prev.map((item) => (item.id === id ? { ...item, quantity: grams } : item))
     );
     setSaveStatus("idle");
-  }
-
-  // ---------- Сохранение через picker ----------
-  function handlePickGrams(id: string, grams: number) {
-    handleQuickAdd(id, grams);
-    setPickerItemId(null);
   }
 
   // ---------- Удаление продукта ----------
@@ -322,6 +311,10 @@ export default function LogFoodPage() {
     }
   }, [selected]);
 
+  const currentPickerValue =
+    pickerItemId &&
+    selected.find((item) => item.id === pickerItemId)?.quantity;
+
   // ---------- UI ----------
   return (
     <div className="flex flex-col min-h-screen bg-slate-50 pb-20">
@@ -333,7 +326,8 @@ export default function LogFoodPage() {
               Добавить приём пищи
             </h1>
             <span className="text-[11px] text-slate-500">
-              Лог питания · {new Date().toLocaleDateString("ru-RU", {
+              Лог питания ·{" "}
+              {new Date().toLocaleDateString("ru-RU", {
                 day: "2-digit",
                 month: "2-digit",
               })}
@@ -503,57 +497,26 @@ export default function LogFoodPage() {
                       variant="ghost"
                       size="sm"
                       onClick={() => handleRemove(item.id)}
-                      className="h-7 px-2 text-[11px] text-slate-400 hover:text-red-500 hover:bg-red-50"
+                      className="h-7 w-7 p-0 rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50"
                     >
-                      Удалить
+                      <span className="sr-only">Удалить</span>
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
 
                   <div className="mt-2 flex flex-col gap-2">
                     <div className="flex items-center gap-2">
-                      <Popover
-                        open={pickerItemId === item.id}
-                        onOpenChange={(open) =>
-                          setPickerItemId(open ? item.id : null)
-                        }
+                      {/* Кнопка открытия колеса граммов */}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-9 rounded-full border-slate-300 bg-slate-50 px-3 text-xs font-medium"
+                        onClick={() => setPickerItemId(item.id)}
                       >
-                        <PopoverTrigger asChild>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className="h-9 rounded-full border-slate-300 bg-slate-50 px-3 text-xs font-medium flex items-center gap-1"
-                          >
-                            <span>
-                              {item.quantity > 0
-                                ? `${item.quantity} г`
-                                : "Выбрать граммы"}
-                            </span>
-                            <ChevronDown className="h-3 w-3 opacity-60" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-40 p-0" align="start">
-                          <div className="px-3 pt-2 pb-1 text-[11px] text-slate-500">
-                            Граммовка
-                          </div>
-                          <ScrollArea className="h-56">
-                            <div className="grid grid-cols-3 gap-1 p-2">
-                              {GRAM_OPTIONS.map((g) => (
-                                <Button
-                                  key={g}
-                                  type="button"
-                                  variant={
-                                    item.quantity === g ? "secondary" : "ghost"
-                                  }
-                                  className="h-8 text-[11px] px-0"
-                                  onClick={() => handlePickGrams(item.id, g)}
-                                >
-                                  {g}
-                                </Button>
-                              ))}
-                            </div>
-                          </ScrollArea>
-                        </PopoverContent>
-                      </Popover>
+                        {item.quantity > 0
+                          ? `${item.quantity} г`
+                          : "Выбрать граммы"}
+                      </Button>
 
                       <Input
                         type="number"
@@ -657,7 +620,6 @@ export default function LogFoodPage() {
           </div>
         </div>
 
-        {/* Кнопка сохранения для случая, когда НЕ Telegram */}
         {!isTelegram && (
           <div className="px-3 pb-3 pt-1 bg-white">
             <Button
@@ -671,6 +633,22 @@ export default function LogFoodPage() {
           </div>
         )}
       </footer>
+
+      {/* Колесо выбора граммов */}
+      {pickerItemId && (
+        <GramsPicker
+          value={currentPickerValue ?? 0}
+          onChange={(val) => {
+            setSelected((prev) =>
+              prev.map((item) =>
+                item.id === pickerItemId ? { ...item, quantity: val } : item
+              )
+            );
+            setSaveStatus("idle");
+          }}
+          onClose={() => setPickerItemId(null)}
+        />
+      )}
     </div>
   );
 }
