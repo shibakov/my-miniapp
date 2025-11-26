@@ -94,83 +94,117 @@ export default function LogFoodPage() {
     carbs: number;
   } | null>(null);
 
-  // ---------- Photo analysis ----------
-  const handlePhoto = async (e: any) => {
-    console.log("🎯 Начал анализ фото");
+ // ---------- Photo analysis ----------
+const handlePhoto = async (e: any) => {
+  console.log("🎯 Начал анализ фото");
 
-    const file = e.target.files[0];
-    if (!file) {
-      console.log("❌ Файл не выбран");
-      return;
+  const file = e.target.files?.[0];
+  if (!file) {
+    console.log("❌ Файл не выбран");
+    return;
+  }
+
+  console.log("📁 Выбран файл:", { name: file.name, size: file.size, type: file.type });
+
+  setPhotoLoading(true);
+  setPhotoResult([]);
+  setPhotoSelected([]);
+  setPhotoError(null);
+
+  // URLs API
+  const RECOGNIZE_URL = "https://food-photo-analyzer-production.up.railway.app/recognize";
+  const ANALYZE_URL = "https://food-photo-analyzer-production.up.railway.app/analyze";
+
+  // Формируем payload
+  const formData = new FormData();
+  formData.append("image", file);
+
+  // ---- Функция запроса (общая) ----
+  const callApi = async (url: string) => {
+    console.log(`🚀 Запрос к API: ${url}`);
+    const response = await fetch(url, { method: "POST", body: formData });
+
+    console.log("📥 Ответ API:", {
+      status: response.status,
+      statusText: response.statusText,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => "");
+      throw new Error(`API error ${response.status}: ${errorText}`);
     }
 
-    console.log("📁 Выбран файл:", { name: file.name, size: file.size, type: file.type });
-
-    setPhotoLoading(true);
-    setPhotoResult([]);
-    setPhotoSelected([]);
-    setPhotoError(null);
-
+    // JSON-parse fallback
     try {
-      console.log("🚀 Отправляю запрос API...");
-      const formData = new FormData();
-      formData.append('image', file); // API хочет 'image' поле с файлом
-      console.log(" FormData подготовлен:", { file_name: file.name, file_size: file.size, file_type: file.type });
-
-      const response = await fetch(
-        "https://food-photo-analyzer-production.up.railway.app/analyze",
-        {
-          method: "POST",
-          body: formData // multipart/form-data без заголовков
-        }
-      );
-
-      console.log("📥 Ответ API:", {
-        status: response.status,
-        statusText: response.statusText,
-        headers: Object.fromEntries(Object.entries(response.headers))
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("❌ API вернул ошибку:", errorText);
-        throw new Error(`API error ${response.status}: ${errorText}`);
-      }
-
-      const result = await response.json();
-      console.log("✅ Получен результат API:", result);
-
-      const items = result.products || [];
-      const totals = result.totals || null;
-      console.log("🍽️ Распознанные продукты:", items);
-      console.log("🏆 Totals:", totals);
-      // Отладка убрана - код адаптирован под новый формат API
-
-
-      // Конвертируем фото-результаты в редактируемые продукты
-      const selectedProducts = items.map((item, index) => ({
-        id: `photo-${item.product_name}-${index}-${Date.now()}`,
-        product: item.product_name,
-        quantity: Math.round(item.quantity_g || 100), // Если нет количества, ставим 100г
-        source: "photo_analysis" as const,
-        kcal_100: item.quantity_g && item.kcal ? (item.kcal / item.quantity_g) * 100 : (item.kcal || 0),
-        protein_100: item.quantity_g && item.protein ? (item.protein / item.quantity_g) * 100 : (item.protein || 0),
-        fat_100: item.quantity_g && item.fat ? (item.fat / item.quantity_g) * 100 : (item.fat || 0),
-        carbs_100: item.quantity_g && item.carbs ? (item.carbs / item.quantity_g) * 100 : (item.carbs || 0),
-      }));
-
-      setPhotoResult(items);
-      setPhotoSelected(selectedProducts);
-      setPhotoTotals(totals);
-    } catch (error) {
-      console.error("💥 Общая ошибка:", error);
-      setPhotoResult([]);
-      setPhotoError(error instanceof Error ? error.message : "Неизвестная ошибка");
-    } finally {
-      setPhotoLoading(false);
-      console.log("🔚 Завершен анализ фото");
+      return await response.json();
+    } catch (err) {
+      console.error("❌ Ошибка JSON:", err);
+      throw new Error("API вернул некорректный JSON");
     }
   };
+
+  try {
+    // ---------- 1 попытка — быстрый endpoint ----------
+    let result;
+    try {
+      result = await callApi(RECOGNIZE_URL);
+      console.log("⚡ Успех: /recognize", result);
+    } catch (err) {
+      console.warn("⚠️ Fallback: переходим на /analyze", err);
+      result = await callApi(ANALYZE_URL);
+      console.log("🐢 Успех: /analyze", result);
+    }
+
+    // ---------- Обработка данных ----------
+    const items = result.products || [];
+    const totals = result.totals || null;
+
+    console.log("🍽️ Продукты:", items);
+    console.log("🏆 Totals:", totals);
+
+    // Превращаем фото-продукты в структуры для редактирования
+    const selectedProducts = items.map((item, index) => ({
+      id: `photo-${item.product_name}-${index}-${Date.now()}`,
+      product: item.product_name,
+      quantity: Math.round(item.quantity_g || 100),
+
+      source: "photo_analysis" as const,
+
+      kcal_100:
+        item.quantity_g && item.kcal
+          ? (item.kcal / item.quantity_g) * 100
+          : item.kcal || 0,
+
+      protein_100:
+        item.quantity_g && item.protein
+          ? (item.protein / item.quantity_g) * 100
+          : item.protein || 0,
+
+      fat_100:
+        item.quantity_g && item.fat
+          ? (item.fat / item.quantity_g) * 100
+          : item.fat || 0,
+
+      carbs_100:
+        item.quantity_g && item.carbs
+          ? (item.carbs / item.quantity_g) * 100
+          : item.carbs || 0,
+    }));
+
+    setPhotoResult(items);
+    setPhotoSelected(selectedProducts);
+    setPhotoTotals(totals);
+
+  } catch (error) {
+    console.error("💥 Общая ошибка:", error);
+    setPhotoResult([]);
+    setPhotoError(error instanceof Error ? error.message : "Неизвестная ошибка");
+  } finally {
+    setPhotoLoading(false);
+    console.log("🔚 Завершен анализ фото");
+  }
+};
+
 
   const searchTimeoutRef = useRef<number | null>(null);
 
