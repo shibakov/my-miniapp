@@ -4,5 +4,3 @@ dist
 .vscode
 .idea
 .cache
-Dockerfile
-nginx.conf
