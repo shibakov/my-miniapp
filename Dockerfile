@@ -3,30 +3,21 @@ FROM node:18-alpine AS builder
 
 WORKDIR /app
 
-# Устанавливаем зависимости
 COPY package*.json ./
 RUN npm install
 
-# Копируем остальной код
 COPY . .
-
-# Сборка Vite-приложения
 RUN npm run build
-
-
 
 # ---------- Stage 2: Nginx static host ----------
 FROM nginx:alpine
 
-# Удаляем дефолтный конфиг nginx
-RUN rm -rf /etc/nginx/conf.d/default.conf
+# Railway requires exposing dynamic port
+ENV PORT=8080
 
-# Копируем наш конфиг
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Copy custom config that uses ${PORT}
+COPY nginx.conf /etc/nginx/templates/default.conf.template
 
-# Копируем собранный фронт
 COPY --from=builder /app/dist /usr/share/nginx/html
-
-EXPOSE 80
 
 CMD ["nginx", "-g", "daemon off;"]
