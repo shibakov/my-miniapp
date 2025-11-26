@@ -6,7 +6,7 @@ interface Props {
   onClose: () => void;
 }
 
-const gramsOptions = Array.from({ length: 41 }, (_, i) => i * 5); // 0..200 step 5
+const gramsOptions = Array.from({ length: 101 }, (_, i) => i * 5); // 0..500 step 5
 
 export default function GramsPicker({ value, onChange, onClose }: Props) {
   const ref = useRef<HTMLDivElement>(null);

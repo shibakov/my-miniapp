@@ -38,6 +38,16 @@ interface SelectedItem {
 
 type SaveStatus = "idle" | "success" | "error";
 
+interface PhotoAnalysisResult {
+  product_name: string;
+  quantity_g?: number;
+  confidence?: number;
+  kcal?: number;
+  protein?: number;
+  fat?: number;
+  carbs?: number;
+}
+
 declare global {
   interface Window {
     Telegram?: {
@@ -70,6 +80,97 @@ export default function LogFoodPage() {
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [pickerItemId, setPickerItemId] = useState<string | null>(null);
+
+  // ---------- Photo analysis state ----------
+  const [photoLoading, setPhotoLoading] = useState(false);
+  const [photoResult, setPhotoResult] = useState<PhotoAnalysisResult[]>([]);
+  const [photoSelected, setPhotoSelected] = useState<SelectedItem[]>([]);
+  const [photoPickerId, setPhotoPickerId] = useState<string | null>(null);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const [photoTotals, setPhotoTotals] = useState<{
+    kcal: number;
+    protein: number;
+    fat: number;
+    carbs: number;
+  } | null>(null);
+
+  // ---------- Photo analysis ----------
+  const handlePhoto = async (e: any) => {
+    console.log("🎯 Начал анализ фото");
+
+    const file = e.target.files[0];
+    if (!file) {
+      console.log("❌ Файл не выбран");
+      return;
+    }
+
+    console.log("📁 Выбран файл:", { name: file.name, size: file.size, type: file.type });
+
+    setPhotoLoading(true);
+    setPhotoResult([]);
+    setPhotoSelected([]);
+    setPhotoError(null);
+
+    try {
+      console.log("🚀 Отправляю запрос API...");
+      const formData = new FormData();
+      formData.append('image', file); // API хочет 'image' поле с файлом
+      console.log(" FormData подготовлен:", { file_name: file.name, file_size: file.size, file_type: file.type });
+
+      const response = await fetch(
+        "https://food-photo-analyzer-production.up.railway.app/analyze",
+        {
+          method: "POST",
+          body: formData // multipart/form-data без заголовков
+        }
+      );
+
+      console.log("📥 Ответ API:", {
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries(Object.entries(response.headers))
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("❌ API вернул ошибку:", errorText);
+        throw new Error(`API error ${response.status}: ${errorText}`);
+      }
+
+      const result = await response.json();
+      console.log("✅ Получен результат API:", result);
+
+      const items = result.products || [];
+      const totals = result.totals || null;
+      console.log("🍽️ Распознанные продукты:", items);
+      console.log("🏆 Totals:", totals);
+      // Отладка убрана - код адаптирован под новый формат API
+
+
+      // Конвертируем фото-результаты в редактируемые продукты
+      const selectedProducts = items.map((item, index) => ({
+        id: `photo-${item.product_name}-${index}-${Date.now()}`,
+        product: item.product_name,
+        quantity: Math.round(item.quantity_g || 100), // Если нет количества, ставим 100г
+        source: "photo_analysis" as const,
+        kcal_100: item.quantity_g && item.kcal ? (item.kcal / item.quantity_g) * 100 : (item.kcal || 0),
+        protein_100: item.quantity_g && item.protein ? (item.protein / item.quantity_g) * 100 : (item.protein || 0),
+        fat_100: item.quantity_g && item.fat ? (item.fat / item.quantity_g) * 100 : (item.fat || 0),
+        carbs_100: item.quantity_g && item.carbs ? (item.carbs / item.quantity_g) * 100 : (item.carbs || 0),
+      }));
+
+      setPhotoResult(items);
+      setPhotoSelected(selectedProducts);
+      setPhotoTotals(totals);
+    } catch (error) {
+      console.error("💥 Общая ошибка:", error);
+      setPhotoResult([]);
+      setPhotoError(error instanceof Error ? error.message : "Неизвестная ошибка");
+    } finally {
+      setPhotoLoading(false);
+      console.log("🔚 Завершен анализ фото");
+    }
+  };
 
   const searchTimeoutRef = useRef<number | null>(null);
 
@@ -255,6 +356,7 @@ export default function LogFoodPage() {
       setQuery("");
       setResults([]);
       setPickerItemId(null);
+      setPhotoPickerId(null);
       window.scrollTo({ top: 0, behavior: "smooth" });
 
       try {
@@ -394,7 +496,10 @@ export default function LogFoodPage() {
             <div className="px-3 pt-2 pb-1 text-[11px] text-slate-500 uppercase tracking-wide">
               Результаты
             </div>
-            <ScrollArea className="max-h-64">
+            <div
+              className="max-h-64 overflow-y-auto"
+              style={{ scrollSnapType: 'y mandatory' }}
+            >
               <div className="py-1">
                 {results.map((item) => (
                   <button
@@ -402,6 +507,7 @@ export default function LogFoodPage() {
                     type="button"
                     onClick={() => handleSelectProduct(item)}
                     className="w-full px-3 py-2 text-left hover:bg-slate-50 transition-colors flex flex-col gap-0.5"
+                    style={{ scrollSnapAlign: 'start' }}
                   >
                     <div className="text-sm font-medium text-slate-900">
                       {item.product}
@@ -422,9 +528,143 @@ export default function LogFoodPage() {
                   </button>
                 ))}
               </div>
-            </ScrollArea>
+            </div>
           </Card>
         )}
+
+        {/* Анализ фото */}
+        <section>
+          <div className="flex items-center gap-2 mb-2">
+            <h2 className="text-sm font-semibold text-slate-800">
+              Добавить по фото
+            </h2>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-8 rounded-full border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 px-3 text-xs font-medium"
+              disabled={photoLoading}
+            >
+              <label
+                htmlFor="photo-input"
+                className="cursor-pointer flex items-center gap-1"
+              >
+                📸 {photoLoading ? "Анализируем..." : "Выбрать фото"}
+              </label>
+              <input
+                id="photo-input"
+                type="file"
+                accept="image/*"
+                capture="environment"
+                hidden
+                onChange={handlePhoto}
+              />
+            </Button>
+            {photoLoading && (
+              <div className="h-4 w-4 animate-spin rounded-full border-[2px] border-blue-300 border-t-blue-500" />
+            )}
+          </div>
+
+          {/* Результаты анализа фото */}
+          {photoLoading && photoResult.length === 0 && (
+            <Card className="border-slate-200 shadow-sm bg-blue-50/50">
+              <div className="px-3 pt-2 pb-3 text-center">
+                <div className="h-6 w-6 mx-auto mb-2 animate-spin rounded-full border-[2px] border-blue-300 border-t-blue-500"></div>
+                <div className="text-sm font-medium text-slate-800 mb-1">
+                  🍽️ Считаем калории...
+                </div>
+                <div className="text-[11px] text-slate-500">
+                  Анализируем блюдо с помощью ИИ
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {!!photoResult.length && (
+            <Card className="border-slate-200 shadow-sm bg-blue-50/50">
+              <div className="px-3 pt-2 pb-1 text-[11px] text-slate-500 uppercase tracking-wide">
+                <span className="flex items-center gap-1">
+                  🎯 Распознанные продукты
+                </span>
+              </div>
+              <div className="px-3 pb-3">
+                <div className="max-h-64 overflow-y-auto">
+                  <div className="space-y-2">
+                    {photoResult.map((item, index) => (
+                      <div
+                        key={`${item.product_name}-${index}`}
+                        className="flex flex-col gap-1 py-2 px-3 bg-white rounded-xl border border-slate-100"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium text-slate-900">
+                            {item.product_name}
+                          </span>
+                          <span className="text-[11px] text-slate-500">
+                            {item.confidence != null && `${Math.round(item.confidence * 100)}% уверенности`}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-slate-600">
+                          {item.kcal != null && `Ккал: ${Math.round(item.kcal)}`}
+                          {item.kcal != null && item.protein != null && " · "}
+                          {item.protein != null && `Б: ${Math.round(item.protein)}г`}
+                          {item.protein != null && item.fat != null && " · "}
+                          {item.fat != null && `Ж: ${Math.round(item.fat)}г`}
+                          {item.fat != null && item.carbs != null && " · "}
+                          {item.carbs != null && `У: ${Math.round(item.carbs)}г`}
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="h-9 rounded-full border-slate-300 bg-slate-50 px-3 text-xs font-medium"
+                          onClick={() => setPhotoPickerId(photoSelected[index]?.id || "")}
+                        >
+                          {photoSelected[index]?.quantity > 0 ? `${photoSelected[index]?.quantity} г` : "Выбрать граммы"}
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full mt-3 h-9 rounded-full border-blue-300 bg-blue-100 text-blue-700 hover:bg-blue-200 text-sm font-medium"
+                  onClick={() => {
+                    if (photoSelected.length > 0) {
+                      setSelected((prev) => [...prev, ...photoSelected]);
+                      setPhotoSelected([]);
+                      setPhotoResult([]);
+                      setPhotoTotals(null);
+                      setPhotoPickerId(null);
+                      setSaveStatus("idle");
+                    }
+                  }}
+                >
+                  Добавить отмеченные в приём ({photoSelected.length})
+                </Button>
+              </div>
+            </Card>
+          )}
+
+          {photoError && (
+            <Card className="border-red-200 shadow-sm bg-red-50/50">
+              <div className="px-3 pt-2 pb-3 text-center">
+                <div className="text-sm font-medium text-red-800 mb-1">
+                  ❌ Ошибка при анализе фото
+                </div>
+                <div className="text-[11px] text-red-600">
+                  {photoError}
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {!photoResult.length && !photoLoading && !photoError && (
+            <Card className="border-dashed border-slate-300 bg-slate-50/60 text-xs text-slate-500 px-3 py-4 shadow-none">
+              Выбери фото блюда, и мы попробуем распознать продукты в нём автоматически.
+            </Card>
+          )}
+        </section>
+
+
 
         {/* Выбранные продукты */}
         <section>
@@ -504,48 +744,18 @@ export default function LogFoodPage() {
                     </Button>
                   </div>
 
-                  <div className="mt-2 flex flex-col gap-2">
-                    <div className="flex items-center gap-2">
-                      {/* Кнопка открытия колеса граммов */}
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="h-9 rounded-full border-slate-300 bg-slate-50 px-3 text-xs font-medium"
-                        onClick={() => setPickerItemId(item.id)}
-                      >
-                        {item.quantity > 0
-                          ? `${item.quantity} г`
-                          : "Выбрать граммы"}
-                      </Button>
-
-                      <Input
-                        type="number"
-                        inputMode="numeric"
-                        min={0}
-                        placeholder="или ввести вручную"
-                        value={item.quantity || ""}
-                        onChange={(e) =>
-                          handleQuantityChange(item.id, e.target.value)
-                        }
-                        className="w-32 h-9 rounded-xl border-slate-300 text-right text-xs"
-                      />
-                      <span className="text-xs text-slate-500">г</span>
-                    </div>
-
-                    <div className="flex flex-wrap gap-1">
-                      {[50, 100, 150, 200].map((g) => (
-                        <Button
-                          key={g}
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 rounded-full border border-slate-200 bg-slate-50 px-2 text-[10px] text-slate-600 hover:bg-slate-100"
-                          onClick={() => handleQuickAdd(item.id, g)}
-                        >
-                          {g} г
-                        </Button>
-                      ))}
-                    </div>
+                  <div className="mt-2">
+                    {/* Кнопка открытия колеса граммов */}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-9 rounded-full border-slate-300 bg-slate-50 px-3 text-xs font-medium"
+                      onClick={() => setPickerItemId(item.id)}
+                    >
+                      {item.quantity > 0
+                        ? `${item.quantity} г`
+                        : "Выбрать граммы"}
+                    </Button>
                   </div>
 
                   {(kcal != null ||
@@ -647,6 +857,22 @@ export default function LogFoodPage() {
             setSaveStatus("idle");
           }}
           onClose={() => setPickerItemId(null)}
+        />
+      )}
+
+      {/* GramsPicker for photo products */}
+      {photoPickerId && (
+        <GramsPicker
+          value={photoSelected.find(item => item.id === photoPickerId)?.quantity ?? 0}
+          onChange={(val) => {
+            setPhotoSelected(prev =>
+              prev.map(item =>
+                item.id === photoPickerId ? { ...item, quantity: val } : item
+              )
+            );
+            setSaveStatus("idle");
+          }}
+          onClose={() => setPhotoPickerId(null)}
         />
       )}
     </div>
