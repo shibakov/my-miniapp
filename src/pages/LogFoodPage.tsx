@@ -99,6 +99,9 @@ export default function LogFoodPage() {
     originalSize: number;
     processedSize: number;
   } | null>(null);
+  const [photoTimeoutFired, setPhotoTimeoutFired] = useState(false);
+  const photoAbortControllerRef = useRef<AbortController | null>(null);
+  const photoTimeoutRef = useRef<number | null>(null);
 
   // ---------- Photo analysis ----------
   const handlePhoto = async (e: any) => {
@@ -116,6 +119,24 @@ export default function LogFoodPage() {
       size: file.size,
       type: file.type
     });
+
+    // Отменяем предыдущий запрос, если он ещё идёт
+    if (photoAbortControllerRef.current) {
+      photoAbortControllerRef.current.abort();
+    }
+    if (photoTimeoutRef.current) {
+      window.clearTimeout(photoTimeoutRef.current);
+      photoTimeoutRef.current = null;
+    }
+    setPhotoTimeoutFired(false);
+
+    const abortController = new AbortController();
+    photoAbortControllerRef.current = abortController;
+
+    // Таймер, после которого покажем fallback на ручной ввод
+    photoTimeoutRef.current = window.setTimeout(() => {
+      setPhotoTimeoutFired(true);
+    }, 3000) as unknown as number;
 
     setPhotoLoading(true);
     setPhotoResult([]);
@@ -167,9 +188,13 @@ export default function LogFoodPage() {
       );
 
       // ---- Функция запроса (общая) ----
-      const callApi = async (url: string) => {
+      const callApi = async (url: string, signal: AbortSignal) => {
         console.log(`🚀 Запрос к API: ${url}`);
-        const response = await fetch(url, { method: "POST", body: formData });
+        const response = await fetch(url, {
+          method: "POST",
+          body: formData,
+          signal
+        });
 
         console.log("📥 Ответ API:", {
           status: response.status,
@@ -193,11 +218,11 @@ export default function LogFoodPage() {
       // ---------- 1 попытка — быстрый endpoint ----------
       let result;
       try {
-        result = await callApi(RECOGNIZE_URL);
+        result = await callApi(RECOGNIZE_URL, abortController.signal);
         console.log("⚡ Успех: /recognize", result);
       } catch (err) {
         console.warn("⚠️ Fallback: переходим на /analyze", err);
-        result = await callApi(ANALYZE_URL);
+        result = await callApi(ANALYZE_URL, abortController.signal);
         console.log("🐢 Успех: /analyze", result);
       }
 
@@ -243,12 +268,23 @@ export default function LogFoodPage() {
       setPhotoSelected(selectedProducts);
       setPhotoTotals(totals);
     } catch (error) {
-      console.error("💥 Общая ошибка:", error);
-      setPhotoResult([]);
-      setPhotoError(
-        error instanceof Error ? error.message : "Неизвестная ошибка"
-      );
+      if (error instanceof DOMException && error.name === "AbortError") {
+        console.log("🚫 Анализ фото прерван пользователем");
+      } else {
+        console.error("💥 Общая ошибка:", error);
+        setPhotoResult([]);
+        setPhotoError(
+          error instanceof Error ? error.message : "Неизвестная ошибка"
+        );
+      }
     } finally {
+      if (photoTimeoutRef.current) {
+        window.clearTimeout(photoTimeoutRef.current);
+        photoTimeoutRef.current = null;
+      }
+      photoAbortControllerRef.current = null;
+      setPhotoTimeoutFired(false);
+
       setPhotoLoading(false);
       const handleEnd = performance.now();
       console.log(
@@ -258,6 +294,30 @@ export default function LogFoodPage() {
       );
       console.log("🔚 Завершен анализ фото");
     }
+  };
+
+  const handleCancelPhoto = () => {
+    if (photoAbortControllerRef.current) {
+      photoAbortControllerRef.current.abort();
+    }
+    if (photoTimeoutRef.current) {
+      window.clearTimeout(photoTimeoutRef.current);
+      photoTimeoutRef.current = null;
+    }
+
+    setPhotoLoading(false);
+    setPhotoTimeoutFired(false);
+    setPhotoResult([]);
+    setPhotoSelected([]);
+    setPhotoTotals(null);
+
+    if (photoPreviewUrl) {
+      URL.revokeObjectURL(photoPreviewUrl);
+    }
+    setPhotoPreviewUrl(null);
+    setPhotoDebug(null);
+
+    setPhotoError("Распознавание отменено. Продолжи заполнять приём вручную.");
   };
 
   const searchTimeoutRef = useRef<number | null>(null);
@@ -684,6 +744,28 @@ export default function LogFoodPage() {
                 <div className="text-[11px] text-slate-500">
                   Анализируем блюдо с помощью ИИ
                 </div>
+              </div>
+            </Card>
+          )}
+
+          {photoLoading && photoTimeoutFired && (
+            <Card className="mt-2 border-amber-200 bg-amber-50/80">
+              <div className="px-3 pt-2 pb-3 text-center">
+                <div className="text-sm font-medium text-amber-900 mb-1">
+                  Ожидание распознавания затянулось
+                </div>
+                <div className="text-[11px] text-amber-800 mb-2">
+                  Ты можешь отменить анализ фото и продолжить вводить продукты
+                  вручную.
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-8 rounded-full border-amber-300 bg-white text-amber-900 text-xs font-medium"
+                  onClick={handleCancelPhoto}
+                >
+                  Отменить распознавание
+                </Button>
               </div>
             </Card>
           )}
