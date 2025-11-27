@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import GramsPicker from "@/components/GramsPicker";
 import { Trash2 } from "lucide-react";
+import { preprocessImage } from "@/lib/image-preprocess";
 
 const API_SEARCH =
   "https://calroiesinfoms-production.up.railway.app/api/search";
@@ -93,118 +94,171 @@ export default function LogFoodPage() {
     fat: number;
     carbs: number;
   } | null>(null);
+  const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
+  const [photoDebug, setPhotoDebug] = useState<{
+    originalSize: number;
+    processedSize: number;
+  } | null>(null);
 
- // ---------- Photo analysis ----------
-const handlePhoto = async (e: any) => {
-  console.log("🎯 Начал анализ фото");
+  // ---------- Photo analysis ----------
+  const handlePhoto = async (e: any) => {
+    console.log("🎯 Начал анализ фото");
+    const handleStart = performance.now();
 
-  const file = e.target.files?.[0];
-  if (!file) {
-    console.log("❌ Файл не выбран");
-    return;
-  }
+    const file = e.target.files?.[0];
+    if (!file) {
+      console.log("❌ Файл не выбран");
+      return;
+    }
 
-  console.log("📁 Выбран файл:", { name: file.name, size: file.size, type: file.type });
-
-  setPhotoLoading(true);
-  setPhotoResult([]);
-  setPhotoSelected([]);
-  setPhotoError(null);
-
-  // URLs API
-  const RECOGNIZE_URL = "https://food-photo-analyzer-production.up.railway.app/recognize";
-  const ANALYZE_URL = "https://food-photo-analyzer-production.up.railway.app/analyze";
-
-  // Формируем payload
-  const formData = new FormData();
-  formData.append("image", file);
-
-  // ---- Функция запроса (общая) ----
-  const callApi = async (url: string) => {
-    console.log(`🚀 Запрос к API: ${url}`);
-    const response = await fetch(url, { method: "POST", body: formData });
-
-    console.log("📥 Ответ API:", {
-      status: response.status,
-      statusText: response.statusText,
+    console.log("📁 Выбран файл:", {
+      name: file.name,
+      size: file.size,
+      type: file.type
     });
 
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => "");
-      throw new Error(`API error ${response.status}: ${errorText}`);
-    }
+    setPhotoLoading(true);
+    setPhotoResult([]);
+    setPhotoSelected([]);
+    setPhotoError(null);
 
-    // JSON-parse fallback
+    // URLs API
+    const RECOGNIZE_URL =
+      "https://food-photo-analyzer-production.up.railway.app/recognize";
+    const ANALYZE_URL =
+      "https://food-photo-analyzer-production.up.railway.app/analyze";
+
     try {
-      return await response.json();
-    } catch (err) {
-      console.error("❌ Ошибка JSON:", err);
-      throw new Error("API вернул некорректный JSON");
+      // ---------- Предобработка фото на клиенте ----------
+      const preprocessStart = performance.now();
+      const processedBlob = await preprocessImage(file);
+      const preprocessEnd = performance.now();
+      console.log(
+        `[ImagePreprocess] Frontend preprocessing: ${(
+          preprocessEnd - preprocessStart
+        ).toFixed(0)} ms`
+      );
+
+      const originalSizeKb = file.size / 1024;
+      const processedSizeKb = processedBlob.size / 1024;
+      console.log(
+        `[ImagePreprocess] Original: ${originalSizeKb.toFixed(
+          1
+        )} KB, Processed: ${processedSizeKb.toFixed(1)} KB`
+      );
+
+      setPhotoDebug({
+        originalSize: file.size,
+        processedSize: processedBlob.size
+      });
+
+      if (photoPreviewUrl) {
+        URL.revokeObjectURL(photoPreviewUrl);
+      }
+      const previewUrl = URL.createObjectURL(processedBlob);
+      setPhotoPreviewUrl(previewUrl);
+
+      // Формируем payload ИМЕННО из обработанного изображения
+      const formData = new FormData();
+      formData.append(
+        "image",
+        processedBlob,
+        file.name.replace(/\.[^.]+$/, "") + "-processed.jpg"
+      );
+
+      // ---- Функция запроса (общая) ----
+      const callApi = async (url: string) => {
+        console.log(`🚀 Запрос к API: ${url}`);
+        const response = await fetch(url, { method: "POST", body: formData });
+
+        console.log("📥 Ответ API:", {
+          status: response.status,
+          statusText: response.statusText
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text().catch(() => "");
+          throw new Error(`API error ${response.status}: ${errorText}`);
+        }
+
+        // JSON-parse fallback
+        try {
+          return await response.json();
+        } catch (err) {
+          console.error("❌ Ошибка JSON:", err);
+          throw new Error("API вернул некорректный JSON");
+        }
+      };
+
+      // ---------- 1 попытка — быстрый endpoint ----------
+      let result;
+      try {
+        result = await callApi(RECOGNIZE_URL);
+        console.log("⚡ Успех: /recognize", result);
+      } catch (err) {
+        console.warn("⚠️ Fallback: переходим на /analyze", err);
+        result = await callApi(ANALYZE_URL);
+        console.log("🐢 Успех: /analyze", result);
+      }
+
+      // ---------- Обработка данных ----------
+      const items: PhotoAnalysisResult[] = result.products || [];
+      const totals = result.totals || null;
+
+      console.log("🍽️ Продукты:", items);
+      console.log("🏆 Totals:", totals);
+
+      // Превращаем фото-продукты в структуры для редактирования
+      const selectedProducts: SelectedItem[] = items.map(
+        (item: PhotoAnalysisResult, index: number) => ({
+          id: `photo-${item.product_name}-${index}-${Date.now()}`,
+          product: item.product_name,
+          quantity: Math.round(item.quantity_g || 100),
+
+          source: "photo_analysis" as const,
+
+          kcal_100:
+            item.quantity_g && item.kcal
+              ? (item.kcal / item.quantity_g) * 100
+              : item.kcal || 0,
+
+          protein_100:
+            item.quantity_g && item.protein
+              ? (item.protein / item.quantity_g) * 100
+              : item.protein || 0,
+
+          fat_100:
+            item.quantity_g && item.fat
+              ? (item.fat / item.quantity_g) * 100
+              : item.fat || 0,
+
+          carbs_100:
+            item.quantity_g && item.carbs
+              ? (item.carbs / item.quantity_g) * 100
+              : item.carbs || 0
+        })
+      );
+
+      setPhotoResult(items);
+      setPhotoSelected(selectedProducts);
+      setPhotoTotals(totals);
+    } catch (error) {
+      console.error("💥 Общая ошибка:", error);
+      setPhotoResult([]);
+      setPhotoError(
+        error instanceof Error ? error.message : "Неизвестная ошибка"
+      );
+    } finally {
+      setPhotoLoading(false);
+      const handleEnd = performance.now();
+      console.log(
+        `[ImagePreprocess] Frontend total (preprocess + API + UI): ${(
+          handleEnd - handleStart
+        ).toFixed(0)} ms`
+      );
+      console.log("🔚 Завершен анализ фото");
     }
   };
-
-  try {
-    // ---------- 1 попытка — быстрый endpoint ----------
-    let result;
-    try {
-      result = await callApi(RECOGNIZE_URL);
-      console.log("⚡ Успех: /recognize", result);
-    } catch (err) {
-      console.warn("⚠️ Fallback: переходим на /analyze", err);
-      result = await callApi(ANALYZE_URL);
-      console.log("🐢 Успех: /analyze", result);
-    }
-
-    // ---------- Обработка данных ----------
-    const items = result.products || [];
-    const totals = result.totals || null;
-
-    console.log("🍽️ Продукты:", items);
-    console.log("🏆 Totals:", totals);
-
-    // Превращаем фото-продукты в структуры для редактирования
-    const selectedProducts = items.map((item, index) => ({
-      id: `photo-${item.product_name}-${index}-${Date.now()}`,
-      product: item.product_name,
-      quantity: Math.round(item.quantity_g || 100),
-
-      source: "photo_analysis" as const,
-
-      kcal_100:
-        item.quantity_g && item.kcal
-          ? (item.kcal / item.quantity_g) * 100
-          : item.kcal || 0,
-
-      protein_100:
-        item.quantity_g && item.protein
-          ? (item.protein / item.quantity_g) * 100
-          : item.protein || 0,
-
-      fat_100:
-        item.quantity_g && item.fat
-          ? (item.fat / item.quantity_g) * 100
-          : item.fat || 0,
-
-      carbs_100:
-        item.quantity_g && item.carbs
-          ? (item.carbs / item.quantity_g) * 100
-          : item.carbs || 0,
-    }));
-
-    setPhotoResult(items);
-    setPhotoSelected(selectedProducts);
-    setPhotoTotals(totals);
-
-  } catch (error) {
-    console.error("💥 Общая ошибка:", error);
-    setPhotoResult([]);
-    setPhotoError(error instanceof Error ? error.message : "Неизвестная ошибка");
-  } finally {
-    setPhotoLoading(false);
-    console.log("🔚 Завершен анализ фото");
-  }
-};
-
 
   const searchTimeoutRef = useRef<number | null>(null);
 
@@ -283,8 +337,8 @@ const handlePhoto = async (e: any) => {
         kcal_100: item.kcal_100,
         protein_100: item.protein_100,
         fat_100: item.fat_100,
-        carbs_100: item.carbs_100,
-      },
+        carbs_100: item.carbs_100
+      }
     ]);
 
     setResults([]);
@@ -345,7 +399,7 @@ const handlePhoto = async (e: any) => {
       kcal: Math.round(kcal),
       protein: Math.round(protein),
       fat: Math.round(fat),
-      carbs: Math.round(carbs),
+      carbs: Math.round(carbs)
     };
   }, [selected]);
 
@@ -363,14 +417,14 @@ const handlePhoto = async (e: any) => {
     const payload = {
       meal_type: mealType,
       request_type: "ready to insert",
-      log_info: logInfo,
+      log_info: logInfo
     };
 
     try {
       const res = await fetch(API_LOG, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(payload)
       });
 
       if (!res.ok) {
@@ -448,8 +502,9 @@ const handlePhoto = async (e: any) => {
   }, [selected]);
 
   const currentPickerValue =
-    pickerItemId &&
-    selected.find((item) => item.id === pickerItemId)?.quantity;
+    pickerItemId
+      ? selected.find((item) => item.id === pickerItemId)?.quantity ?? 0
+      : 0;
 
   // ---------- UI ----------
   return (
@@ -465,14 +520,14 @@ const handlePhoto = async (e: any) => {
               Лог питания ·{" "}
               {new Date().toLocaleDateString("ru-RU", {
                 day: "2-digit",
-                month: "2-digit",
+                month: "2-digit"
               })}
             </span>
           </div>
           <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] text-slate-600">
             {new Date().toLocaleTimeString("ru-RU", {
               hour: "2-digit",
-              minute: "2-digit",
+              minute: "2-digit"
             })}
           </span>
         </div>
@@ -491,7 +546,7 @@ const handlePhoto = async (e: any) => {
                     "flex-1 rounded-full px-3 py-1.5 text-xs font-medium transition-all",
                     active
                       ? "bg-blue-600 text-white shadow-sm"
-                      : "text-slate-600",
+                      : "text-slate-600"
                   ].join(" ")}
                 >
                   {getMealLabel(type)}
@@ -532,7 +587,7 @@ const handlePhoto = async (e: any) => {
             </div>
             <div
               className="max-h-64 overflow-y-auto"
-              style={{ scrollSnapType: 'y mandatory' }}
+              style={{ scrollSnapType: "y mandatory" }}
             >
               <div className="py-1">
                 {results.map((item) => (
@@ -541,7 +596,7 @@ const handlePhoto = async (e: any) => {
                     type="button"
                     onClick={() => handleSelectProduct(item)}
                     className="w-full px-3 py-2 text-left hover:bg-slate-50 transition-colors flex flex-col gap-0.5"
-                    style={{ scrollSnapAlign: 'start' }}
+                    style={{ scrollSnapAlign: "start" }}
                   >
                     <div className="text-sm font-medium text-slate-900">
                       {item.product}
@@ -598,6 +653,26 @@ const handlePhoto = async (e: any) => {
             )}
           </div>
 
+          {photoDebug && (
+            <p className="mb-1 text-[11px] text-slate-500">
+              Фото: исходный {(photoDebug.originalSize / 1024).toFixed(1)} KB →
+              отправляем {(photoDebug.processedSize / 1024).toFixed(1)} KB
+            </p>
+          )}
+
+          {photoPreviewUrl && (
+            <div className="mb-2">
+              <p className="text-[11px] text-slate-500">
+                Фото, которое отправляем на бэкенд:
+              </p>
+              <img
+                src={photoPreviewUrl}
+                alt="Предобработанное фото"
+                className="mt-1 max-w-full max-h-64 object-contain border rounded-xl bg-white"
+              />
+            </div>
+          )}
+
           {/* Результаты анализа фото */}
           {photoLoading && photoResult.length === 0 && (
             <Card className="border-slate-200 shadow-sm bg-blue-50/50">
@@ -633,25 +708,38 @@ const handlePhoto = async (e: any) => {
                             {item.product_name}
                           </span>
                           <span className="text-[11px] text-slate-500">
-                            {item.confidence != null && `${Math.round(item.confidence * 100)}% уверенности`}
+                            {item.confidence != null &&
+                              `${Math.round(item.confidence * 100)}% уверенности`}
                           </span>
                         </div>
                         <div className="text-[11px] text-slate-600">
-                          {item.kcal != null && `Ккал: ${Math.round(item.kcal)}`}
-                          {item.kcal != null && item.protein != null && " · "}
-                          {item.protein != null && `Б: ${Math.round(item.protein)}г`}
+                          {item.kcal != null &&
+                            `Ккал: ${Math.round(item.kcal)}`}
+                          {item.kcal != null &&
+                            item.protein != null &&
+                            " · "}
+                          {item.protein != null &&
+                            `Б: ${Math.round(item.protein)}г`}
                           {item.protein != null && item.fat != null && " · "}
-                          {item.fat != null && `Ж: ${Math.round(item.fat)}г`}
+                          {item.fat != null &&
+                            `Ж: ${Math.round(item.fat)}г`}
                           {item.fat != null && item.carbs != null && " · "}
-                          {item.carbs != null && `У: ${Math.round(item.carbs)}г`}
+                          {item.carbs != null &&
+                            `У: ${Math.round(item.carbs)}г`}
                         </div>
                         <Button
                           type="button"
                           variant="outline"
                           className="h-9 rounded-full border-slate-300 bg-slate-50 px-3 text-xs font-medium"
-                          onClick={() => setPhotoPickerId(photoSelected[index]?.id || "")}
+                          onClick={() =>
+                            setPhotoPickerId(
+                              photoSelected[index]?.id ?? null
+                            )
+                          }
                         >
-                          {photoSelected[index]?.quantity > 0 ? `${photoSelected[index]?.quantity} г` : "Выбрать граммы"}
+                          {photoSelected[index]?.quantity > 0
+                            ? `${photoSelected[index]?.quantity} г`
+                            : "Выбрать граммы"}
                         </Button>
                       </div>
                     ))}
@@ -684,21 +772,18 @@ const handlePhoto = async (e: any) => {
                 <div className="text-sm font-medium text-red-800 mb-1">
                   ❌ Ошибка при анализе фото
                 </div>
-                <div className="text-[11px] text-red-600">
-                  {photoError}
-                </div>
+                <div className="text-[11px] text-red-600">{photoError}</div>
               </div>
             </Card>
           )}
 
           {!photoResult.length && !photoLoading && !photoError && (
             <Card className="border-dashed border-slate-300 bg-slate-50/60 text-xs text-slate-500 px-3 py-4 shadow-none">
-              Выбери фото блюда, и мы попробуем распознать продукты в нём автоматически.
+              Выбери фото блюда, и мы попробуем распознать продукты в нём
+              автоматически.
             </Card>
           )}
         </section>
-
-
 
         {/* Выбранные продукты */}
         <section>
@@ -745,7 +830,7 @@ const handlePhoto = async (e: any) => {
                     "border px-3 py-2.5 rounded-2xl transition-colors",
                     hasQuantity
                       ? "border-slate-200 bg-white"
-                      : "border-amber-200 bg-amber-50/60",
+                      : "border-amber-200 bg-amber-50/60"
                   ].join(" ")}
                 >
                   <div className="flex items-start justify-between gap-2">
@@ -897,10 +982,13 @@ const handlePhoto = async (e: any) => {
       {/* GramsPicker for photo products */}
       {photoPickerId && (
         <GramsPicker
-          value={photoSelected.find(item => item.id === photoPickerId)?.quantity ?? 0}
+          value={
+            photoSelected.find((item) => item.id === photoPickerId)
+              ?.quantity ?? 0
+          }
           onChange={(val) => {
-            setPhotoSelected(prev =>
-              prev.map(item =>
+            setPhotoSelected((prev) =>
+              prev.map((item) =>
                 item.id === photoPickerId ? { ...item, quantity: val } : item
               )
             );
