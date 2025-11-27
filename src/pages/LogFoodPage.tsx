@@ -143,11 +143,9 @@ export default function LogFoodPage() {
     setPhotoSelected([]);
     setPhotoError(null);
 
-    // URLs API
-    const RECOGNIZE_URL =
-      "https://food-photo-analyzer-production.up.railway.app/recognize";
-    const ANALYZE_URL =
-      "https://food-photo-analyzer-production.up.railway.app/analyze";
+    // URLs API (через nginx proxy, чтобы не упираться в CORS)
+    const RECOGNIZE_URL = "/api/recognize";
+    const ANALYZE_URL = "/api/analyze";
 
     try {
       // ---------- Предобработка фото на клиенте ----------
