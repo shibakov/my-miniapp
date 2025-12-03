@@ -4,33 +4,30 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import GramsPicker from "@/components/GramsPicker";
+import DailyStatsCard from "@/components/DailyStatsCard";
 import { Trash2 } from "lucide-react";
 import { preprocessImage } from "@/lib/image-preprocess";
-
-const API_SEARCH =
-  "https://calroiesinfoms-production.up.railway.app/api/search";
-const API_LOG = "https://shibakovk.app.n8n.cloud/webhook/food_log";
+import {
+  createMeal,
+  searchProducts,
+  createProduct,
+  CATEGORY_LABELS,
+  CATEGORY_BG_CLASSES,
+  type PendingItem,
+  type SearchResult,
+  type MealType,
+  type ProductCategoryKey
+} from "@/lib/api";
 
 const DRAFT_KEY = "draft_selected_products_v2";
 
-type MealType = "Breakfast" | "Lunch" | "Dinner" | "Snack";
-
-interface SearchResult {
-  id?: string;
-  product: string;
-  brand?: string | null;
-  source?: string;
-  kcal_100?: number;
-  protein_100?: number;
-  fat_100?: number;
-  carbs_100?: number;
-}
-
 interface SelectedItem {
-  id: string;
+  id: string; // local row id
+  dict_id?: string; // id продукта в словаре (если есть)
   product: string;
   quantity: number;
   source?: string;
+  category?: ProductCategoryKey;
   kcal_100?: number;
   protein_100?: number;
   fat_100?: number;
@@ -72,11 +69,32 @@ function getMealLabel(mealType: MealType) {
   }
 }
 
+function parseOptionalNumber(value: string): number | undefined {
+  if (!value.trim()) return undefined;
+  const normalized = value.replace(",", ".");
+  const num = Number(normalized);
+  return Number.isFinite(num) && num > 0 ? num : undefined;
+}
+
 export default function LogFoodPage() {
   const [mealType, setMealType] = useState<MealType>("Snack");
+  const [statsRefreshKey, setStatsRefreshKey] = useState(0);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
+
+  // Создание нового продукта
+  const [showCreateProduct, setShowCreateProduct] = useState(false);
+  const [createName, setCreateName] = useState("");
+  const [createCategoryKey, setCreateCategoryKey] =
+    useState<ProductCategoryKey>("protein");
+  const [createKcal, setCreateKcal] = useState("");
+  const [createProtein, setCreateProtein] = useState("");
+  const [createFat, setCreateFat] = useState("");
+  const [createCarbs, setCreateCarbs] = useState("");
+  const [createLoading, setCreateLoading] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+
   const [selected, setSelected] = useState<SelectedItem[]>([]);
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
@@ -349,11 +367,7 @@ export default function LogFoodPage() {
 
     setLoading(true);
     try {
-      const res = await fetch(
-        `${API_SEARCH}?query=${encodeURIComponent(trimmed)}`
-      );
-      const data = await res.json();
-      const items = (data?.results || []) as SearchResult[];
+      const items = await searchProducts(trimmed);
       setResults(items);
     } catch (e) {
       console.error("Ошибка поиска:", e);
@@ -362,6 +376,49 @@ export default function LogFoodPage() {
       setLoading(false);
     }
   }, []);
+
+  const groupedResults = useMemo(
+    () => {
+      if (!results.length) return [] as [ProductCategoryKey | "other", SearchResult[]][];
+
+      const map = new Map<ProductCategoryKey | "other", SearchResult[]>();
+
+      for (const item of results) {
+        const key = (item.category ?? "other") as ProductCategoryKey | "other";
+        if (!map.has(key)) {
+          map.set(key, []);
+        }
+        map.get(key)!.push(item);
+      }
+
+      const compareByFreqAndName = (a: SearchResult, b: SearchResult) => {
+        const fa = (a as any).freq_usage ?? 0;
+        const fb = (b as any).freq_usage ?? 0;
+        if (fa !== fb) return fb - fa;
+        return a.product.localeCompare(b.product, "ru");
+      };
+
+      const order: (ProductCategoryKey | "other")[] = [
+        "protein",
+        "veg_fruit",
+        "cards",
+        "fats",
+        "dairy",
+        "junk_food",
+        "other"
+      ];
+
+      const entries = Array.from(map.entries());
+      for (const [, items] of entries) {
+        items.sort(compareByFreqAndName);
+      }
+
+      entries.sort((a, b) => order.indexOf(a[0]) - order.indexOf(b[0]));
+
+      return entries;
+    },
+    [results]
+  );
 
   function handleQueryChange(value: string) {
     setQuery(value);
@@ -381,7 +438,7 @@ export default function LogFoodPage() {
     }, 300) as unknown as number;
   }
 
-  // ---------- Добавление продукта ----------
+  // ---------- Добавление продукта из словаря ----------
   function handleSelectProduct(item: SearchResult) {
     const id = `${item.id ?? item.product}-${Date.now()}`;
 
@@ -389,9 +446,11 @@ export default function LogFoodPage() {
       ...prev,
       {
         id,
+        dict_id: item.id,
         product: item.product,
         quantity: 0,
         source: item.source,
+        category: item.category,
         kcal_100: item.kcal_100,
         protein_100: item.protein_100,
         fat_100: item.fat_100,
@@ -403,6 +462,64 @@ export default function LogFoodPage() {
     setQuery("");
     setSaveStatus("idle");
   }
+
+  // ---------- Создание нового продукта ----------
+  const handleOpenCreateProduct = () => {
+    setCreateName(query.trim());
+    setCreateCategoryKey("protein");
+    setCreateKcal("");
+    setCreateProtein("");
+    setCreateFat("");
+    setCreateCarbs("");
+    setCreateError(null);
+    setShowCreateProduct(true);
+  };
+
+  const handleCreateProductSave = async () => {
+    const name = createName.trim();
+    if (!name) {
+      setCreateError("Укажи название продукта");
+      return;
+    }
+
+    setCreateLoading(true);
+    setCreateError(null);
+
+    try {
+      const created = await createProduct({
+        product: name,
+        category: createCategoryKey,
+        kcal_100: parseOptionalNumber(createKcal),
+        protein_100: parseOptionalNumber(createProtein),
+        fat_100: parseOptionalNumber(createFat),
+        carbs_100: parseOptionalNumber(createCarbs)
+      });
+
+      const id = `${created.id}-${Date.now()}`;
+      const newItem: SelectedItem = {
+        id,
+        dict_id: created.id,
+        product: created.product,
+        quantity: 0,
+        source: created.source,
+        category: created.category,
+        kcal_100: created.kcal_100,
+        protein_100: created.protein_100,
+        fat_100: created.fat_100,
+        carbs_100: created.carbs_100
+      };
+
+      setSelected((prev) => [...prev, newItem]);
+      setShowCreateProduct(false);
+      setPickerItemId(id); // сразу спрашиваем граммы через GramsPicker
+      setSaveStatus("idle");
+    } catch (e) {
+      console.error("Ошибка при создании продукта", e);
+      setCreateError("Не удалось создать продукт. Попробуй ещё раз.");
+    } finally {
+      setCreateLoading(false);
+    }
+  };
 
   // ---------- Обновление граммовки ----------
   function handleQuantityChange(id: string, value: string) {
@@ -468,26 +585,27 @@ export default function LogFoodPage() {
     setSaving(true);
     setSaveStatus("idle");
 
-    const logInfo = selected
-      .map((s) => JSON.stringify({ product: s.product, quantity: s.quantity }))
-      .join("\n");
+    const items: PendingItem[] = selected.map((s) => ({
+      id: s.id,
+      dict_id: s.dict_id,
+      product: s.product,
+      grams: s.quantity,
+      category: s.category,
+      kcal_100: s.kcal_100,
+      protein_100: s.protein_100,
+      fat_100: s.fat_100,
+      carbs_100: s.carbs_100,
+      source: s.source
+    }));
 
     const payload = {
       meal_type: mealType,
-      request_type: "ready to insert",
-      log_info: logInfo
+      items,
+      created_at: new Date().toISOString()
     };
 
     try {
-      const res = await fetch(API_LOG, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
-      }
+      await createMeal(payload);
 
       setSaveStatus("success");
 
@@ -512,6 +630,9 @@ export default function LogFoodPage() {
       } catch {
         // ignore
       }
+
+      // обновляем карточку дневной статистики
+      setStatsRefreshKey((key) => key + 1);
     } catch (e) {
       console.error("Ошибка при сохранении:", e);
       setSaveStatus("error");
@@ -615,8 +736,11 @@ export default function LogFoodPage() {
         </div>
       </header>
 
-      {/* Основной контент */}
-      <main className="flex-1 px-4 pt-4 overflow-y-auto space-y-4">
+      <main className="flex-1 px-4 pt-3 overflow-y-auto space-y-4">
+        {/* Карточка дневного баланса */}
+        <DailyStatsCard refreshKey={statsRefreshKey} />
+
+        {/* Основной контент */}
         {/* Поиск */}
         <section>
           <label className="block text-xs font-medium text-slate-600 mb-1.5">
@@ -635,49 +759,90 @@ export default function LogFoodPage() {
               </div>
             )}
           </div>
-        </section>
 
-        {/* Результаты поиска */}
-        {!!results.length && (
-          <Card className="border-slate-200 shadow-sm">
-            <div className="px-3 pt-2 pb-1 text-[11px] text-slate-500 uppercase tracking-wide">
-              Результаты
-            </div>
-            <div
-              className="max-h-64 overflow-y-auto"
-              style={{ scrollSnapType: "y mandatory" }}
-            >
-              <div className="py-1">
-                {results.map((item) => (
-                  <button
-                    key={item.id ?? item.product}
-                    type="button"
-                    onClick={() => handleSelectProduct(item)}
-                    className="w-full px-3 py-2 text-left hover:bg-slate-50 transition-colors flex flex-col gap-0.5"
-                    style={{ scrollSnapAlign: "start" }}
-                  >
-                    <div className="text-sm font-medium text-slate-900">
-                      {item.product}
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <div className="text-[11px] text-slate-500">
-                        {item.brand && <span>{item.brand} · </span>}
-                        {item.kcal_100 != null && (
-                          <span>{Math.round(item.kcal_100)} ккал / 100 г</span>
-                        )}
-                      </div>
-                      {item.source && (
-                        <span className="text-[10px] uppercase text-slate-400">
-                          {item.source}
-                        </span>
-                      )}
-                    </div>
-                  </button>
-                ))}
+          {/* Результаты поиска по категориям */}
+          {!!results.length && (
+            <Card className="mt-2 border-slate-200 shadow-sm">
+              <div className="px-3 pt-2 pb-1 text-[11px] text-slate-500 uppercase tracking-wide">
+                Результаты
               </div>
+              <div
+                className="max-h-64 overflow-y-auto"
+                style={{ scrollSnapType: "y mandatory" }}
+              >
+                <div className="py-1 space-y-2">
+                  {groupedResults.map(([categoryKey, items]) => {
+                    const label =
+                      CATEGORY_LABELS[categoryKey] ?? CATEGORY_LABELS.other;
+                    const bgClass =
+                      CATEGORY_BG_CLASSES[categoryKey] ??
+                      CATEGORY_BG_CLASSES.other;
+
+                    return (
+                      <div key={categoryKey} className="mb-1">
+                        <div className="px-3 pt-1 pb-1 text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
+                          {label}
+                        </div>
+                        <div className="space-y-1">
+                          {items.map((item) => (
+                            <button
+                              key={item.id ?? item.product}
+                              type="button"
+                              onClick={() => handleSelectProduct(item)}
+                              className={`w-full px-3 py-2 text-left transition-colors flex flex-col gap-0.5 rounded-xl hover:bg-opacity-80 ${bgClass}`}
+                              style={{ scrollSnapAlign: "start" }}
+                            >
+                              <div className="text-sm font-medium text-slate-900">
+                                {item.product}
+                              </div>
+                              <div className="flex justify-between items-center">
+                                <div className="text-[11px] text-slate-600">
+                                  {item.brand && <span>{item.brand} · </span>}
+                                  {item.kcal_100 != null && (
+                                    <span>
+                                      {Math.round(item.kcal_100)} ккал / 100 г
+                                    </span>
+                                  )}
+                                </div>
+                                {item.source && (
+                                  <span className="text-[10px] uppercase text-slate-400">
+                                    {item.source}
+                                  </span>
+                                )}
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {/* Нет результатов */}
+          {query.trim() && !loading && results.length === 0 && (
+            <Card className="mt-2 border-dashed border-slate-300 bg-slate-50/60 text-xs text-slate-600 px-3 py-4 shadow-none">
+              Ничего не найдено по запросу «{query.trim()}». Ты можешь добавить
+              этот продукт вручную.
+            </Card>
+          )}
+
+          {/* Кнопка создания нового продукта */}
+          {query.trim() && (
+            <div className="mt-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full h-9 rounded-full text-xs font-medium border-dashed border-slate-300"
+                onClick={handleOpenCreateProduct}
+              >
+                + Добавить новый продукт
+              </Button>
             </div>
-          </Card>
-        )}
+          )}
+        </section>
 
         {/* Анализ фото */}
         <section>
@@ -801,8 +966,7 @@ export default function LogFoodPage() {
                           {item.protein != null &&
                             `Б: ${Math.round(item.protein)}г`}
                           {item.protein != null && item.fat != null && " · "}
-                          {item.fat != null &&
-                            `Ж: ${Math.round(item.fat)}г`}
+                          {item.fat != null && `Ж: ${Math.round(item.fat)}г`}
                           {item.fat != null && item.carbs != null && " · "}
                           {item.carbs != null &&
                             `У: ${Math.round(item.carbs)}г`}
@@ -1076,6 +1240,139 @@ export default function LogFoodPage() {
           }}
           onClose={() => setPhotoPickerId(null)}
         />
+      )}
+
+      {/* Модалка создания нового продукта */}
+      {showCreateProduct && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40">
+          <div className="w-full bg-white rounded-t-3xl p-4 pb-5 shadow-xl">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-semibold text-slate-900">
+                Новый продукт
+              </h2>
+              <button
+                type="button"
+                className="text-xs text-slate-500"
+                onClick={() => setShowCreateProduct(false)}
+              >
+                Закрыть
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              <div>
+                <label className="block text-[11px] font-medium text-slate-600 mb-1">
+                  Название
+                </label>
+                <Input
+                  value={createName}
+                  onChange={(e) => setCreateName(e.target.value)}
+                  placeholder="Например, Творог 5%"
+                  className="h-9 text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-medium text-slate-600 mb-1">
+                  Категория
+                </label>
+                <select
+                  value={createCategoryKey}
+                  onChange={(e) =>
+                    setCreateCategoryKey(e.target.value as ProductCategoryKey)
+                  }
+                  className="w-full h-9 rounded-xl border border-slate-300 bg-white px-3 text-xs text-slate-800"
+                >
+                  <option value="protein">{CATEGORY_LABELS.protein}</option>
+                  <option value="veg_fruit">
+                    {CATEGORY_LABELS.veg_fruit}
+                  </option>
+                  <option value="cards">{CATEGORY_LABELS.cards}</option>
+                  <option value="fats">{CATEGORY_LABELS.fats}</option>
+                  <option value="dairy">{CATEGORY_LABELS.dairy}</option>
+                  <option value="junk_food">
+                    {CATEGORY_LABELS.junk_food}
+                  </option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 mt-1">
+                <div>
+                  <label className="block text-[11px] font-medium text-slate-600 mb-1">
+                    Ккал / 100 г
+                  </label>
+                  <Input
+                    value={createKcal}
+                    onChange={(e) => setCreateKcal(e.target.value)}
+                    inputMode="decimal"
+                    className="h-9 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-medium text-slate-600 mb-1">
+                    Белки / 100 г
+                  </label>
+                  <Input
+                    value={createProtein}
+                    onChange={(e) => setCreateProtein(e.target.value)}
+                    inputMode="decimal"
+                    className="h-9 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-medium text-slate-600 mb-1">
+                    Жиры / 100 г
+                  </label>
+                  <Input
+                    value={createFat}
+                    onChange={(e) => setCreateFat(e.target.value)}
+                    inputMode="decimal"
+                    className="h-9 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-medium text-slate-600 mb-1">
+                    Углеводы / 100 г
+                  </label>
+                  <Input
+                    value={createCarbs}
+                    onChange={(e) => setCreateCarbs(e.target.value)}
+                    inputMode="decimal"
+                    className="h-9 text-xs"
+                  />
+                </div>
+              </div>
+
+              {createError && (
+                <div className="mt-1 text-[11px] text-red-600">
+                  {createError}
+                </div>
+              )}
+            </div>
+
+            <div className="mt-3 flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1 h-9 rounded-full text-xs"
+                onClick={() => setShowCreateProduct(false)}
+                disabled={createLoading}
+              >
+                Отмена
+              </Button>
+              <Button
+                type="button"
+                className="flex-1 h-9 rounded-full text-xs font-semibold"
+                onClick={handleCreateProductSave}
+                disabled={createLoading || !createName.trim()}
+              >
+                {createLoading
+                  ? "Создаём..."
+                  : "Сохранить и выбрать граммы"}
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
