@@ -47,6 +47,14 @@ export default function HistoryPage({ onStatsChanged }: HistoryPageProps) {
   const [loadingDay, setLoadingDay] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Разрешаем правку только за вчерашний день
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+  const editableDate = yesterday.toISOString().slice(0, 10);
+  const isEditableDay = selectedDate === editableDate;
+
   const [gramsPickerItem, setGramsPickerItem] = useState<{
     logItemId: string;
     currentGrams: number;
@@ -102,6 +110,7 @@ export default function HistoryPage({ onStatsChanged }: HistoryPageProps) {
   }, [selectedDate]);
 
   const handleOpenGramsPicker = (item: HistoryProductItem) => {
+    if (!isEditableDay) return;
     setGramsPickerItem({ logItemId: item.log_item_id, currentGrams: item.grams });
   };
 
@@ -127,6 +136,7 @@ export default function HistoryPage({ onStatsChanged }: HistoryPageProps) {
   };
 
   const openNutritionEditor = (item: HistoryProductItem) => {
+    if (!isEditableDay) return;
     setEditNutritionItem(item);
 
     const grams = item.grams || 100;
@@ -329,6 +339,7 @@ export default function HistoryPage({ onStatsChanged }: HistoryPageProps) {
                               variant="outline"
                               className="h-7 rounded-full px-2 text-[10px]"
                               onClick={() => handleOpenGramsPicker(item)}
+                              disabled={!isEditableDay}
                             >
                               Изменить граммы
                             </Button>
@@ -336,8 +347,9 @@ export default function HistoryPage({ onStatsChanged }: HistoryPageProps) {
                               <Button
                                 type="button"
                                 variant="ghost"
-                                className="h-7 rounded-full px-2 text-[10px] text-slate-500 hover:text-slate-700"
+                                className="h-7 rounded-full px-2 text-[10px] text-slate-500 hover:text-slate-700 disabled:opacity-50 disabled:hover:text-slate-500"
                                 onClick={() => openNutritionEditor(item)}
+                                disabled={!isEditableDay}
                               >
                                 Исправить КБЖУ
                               </Button>

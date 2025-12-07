@@ -69,10 +69,11 @@ export default function DailyStatsCard({ refreshKey }: DailyStatsCardProps) {
 
   if (!stats) return null;
 
-  const kcalLeft = Math.max(stats.kcal_limit - stats.kcal_used, 0);
-  const proteinLeft = Math.max(stats.protein_limit - stats.protein_used, 0);
-  const fatLeft = Math.max(stats.fat_limit - stats.fat_used, 0);
-  const carbsLeft = Math.max(stats.carbs_limit - stats.carbs_used, 0);
+  // Остаток теперь может быть отрицательным, чтобы было видно перебор
+  const kcalLeft = stats.kcal_limit - stats.kcal_used;
+  const proteinLeft = stats.protein_limit - stats.protein_used;
+  const fatLeft = stats.fat_limit - stats.fat_used;
+  const carbsLeft = stats.carbs_limit - stats.carbs_used;
 
   const ratio = (used: number, limit: number) => {
     if (!limit) return 0;
@@ -166,7 +167,7 @@ export default function DailyStatsCard({ refreshKey }: DailyStatsCardProps) {
             </div>
           </div>
           <div className="text-[9px] text-slate-500 text-center">
-            Б / {formatNumber(stats.protein_limit)} г
+            Б {formatNumber(stats.protein_used)} / {formatNumber(stats.protein_limit)} г
             {stats.protein_used > stats.protein_limit && (
               <span className="block text-[9px] text-red-500 mt-0.5">
                 выше лимита
@@ -217,7 +218,7 @@ export default function DailyStatsCard({ refreshKey }: DailyStatsCardProps) {
             </div>
           </div>
           <div className="text-[9px] text-slate-500 text-center">
-            Ж / {formatNumber(stats.fat_limit)} г
+            Ж {formatNumber(stats.fat_used)} / {formatNumber(stats.fat_limit)} г
             {stats.fat_used > stats.fat_limit && (
               <span className="block text-[9px] text-red-500 mt-0.5">
                 выше лимита
@@ -268,7 +269,7 @@ export default function DailyStatsCard({ refreshKey }: DailyStatsCardProps) {
             </div>
           </div>
           <div className="text-[9px] text-slate-500 text-center">
-            У / {formatNumber(stats.carbs_limit)} г
+            У {formatNumber(stats.carbs_used)} / {formatNumber(stats.carbs_limit)} г
             {stats.carbs_used > stats.carbs_limit && (
               <span className="block text-[9px] text-red-500 mt-0.5">
                 выше лимита

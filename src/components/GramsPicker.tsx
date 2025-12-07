@@ -24,7 +24,9 @@ export default function GramsPicker({ value, onChange, onClose }: Props) {
   }, [onClose]);
 
   // При открытии/смене value прокручиваем колесо так, чтобы выбранное значение
-  // было по центру окна выбора
+  // оказывалось на одной линии с индикатором выбора.
+  // Линия выбора привязана к фиксированной высоте строки (h-11 ≈ 44px),
+  // поэтому просто прокручиваем так, чтобы выбранная строка была на этой позиции.
   useEffect(() => {
     const container = scrollRef.current;
     if (!container) return;
@@ -33,9 +35,8 @@ export default function GramsPicker({ value, onChange, onClose }: Props) {
     if (index === -1) return;
 
     const itemHeight = 44; // h-11 ≈ 44px
-    const containerHeight = container.clientHeight;
-    const offset = index * itemHeight - containerHeight / 2 + itemHeight / 2;
-    container.scrollTop = Math.max(offset, 0);
+    const offset = index * itemHeight;
+    container.scrollTop = offset;
   }, [value]);
 
   return (
@@ -63,9 +64,10 @@ export default function GramsPicker({ value, onChange, onClose }: Props) {
 
         {/* Wheel container */}
         <div className="relative h-48 overflow-hidden">
+          {/* Индикатор выбранной строки */}
           <div
-            className="absolute inset-0 pointer-events-none border-y border-gray-300"
-            style={{ top: "50%", marginTop: -22, height: 44 }}
+            className="absolute left-0 right-0 pointer-events-none border-y border-gray-300"
+            style={{ top: 22, height: 44 }}
           ></div>
 
           <div

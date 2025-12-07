@@ -36,6 +36,13 @@ interface SelectedItem {
 
 type SaveStatus = "idle" | "success" | "error";
 
+interface LogMessage {
+  id: string;
+  text: string;
+  created_at: string;
+  type: "system";
+}
+
 interface PhotoAnalysisResult {
   product_name: string;
   quantity_g?: number;
@@ -99,6 +106,7 @@ export default function LogFoodPage() {
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [pickerItemId, setPickerItemId] = useState<string | null>(null);
+  const [logMessages, setLogMessages] = useState<LogMessage[]>([]);
 
   // ---------- Photo analysis state ----------
   const [photoLoading, setPhotoLoading] = useState(false);
@@ -608,6 +616,15 @@ export default function LogFoodPage() {
       await createMeal(payload);
 
       setSaveStatus("success");
+      setLogMessages((prev) => [
+        ...prev,
+        {
+          id: `${Date.now()}`,
+          text: "Лог успешно записан",
+          created_at: new Date().toISOString(),
+          type: "system"
+        }
+      ]);
 
       // очищаем черновик и состояние
       try {
@@ -710,35 +727,37 @@ export default function LogFoodPage() {
             })}
           </span>
         </div>
-
-        {/* Переключатель типа приёма */}
-        <div className="inline-flex w-full rounded-full bg-slate-100 p-1">
-          {(["Breakfast", "Lunch", "Dinner", "Snack"] as MealType[]).map(
-            (type) => {
-              const active = mealType === type;
-              return (
-                <button
-                  key={type}
-                  type="button"
-                  onClick={() => setMealType(type)}
-                  className={[
-                    "flex-1 rounded-full px-3 py-1.5 text-xs font-medium transition-all",
-                    active
-                      ? "bg-blue-600 text-white shadow-sm"
-                      : "text-slate-600"
-                  ].join(" ")}
-                >
-                  {getMealLabel(type)}
-                </button>
-              );
-            }
-          )}
-        </div>
       </header>
 
       <main className="flex-1 px-4 pt-3 overflow-y-auto space-y-4">
         {/* Карточка дневного баланса */}
         <DailyStatsCard refreshKey={statsRefreshKey} />
+
+        {/* Переключатель типа приёма */}
+        <section>
+          <div className="inline-flex w-full rounded-full bg-slate-100 p-1">
+            {(["Breakfast", "Lunch", "Dinner", "Snack"] as MealType[]).map(
+              (type) => {
+                const active = mealType === type;
+                return (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => setMealType(type)}
+                    className={[
+                      "flex-1 rounded-full px-3 py-1.5 text-xs font-medium transition-all",
+                      active
+                        ? "bg-blue-600 text-white shadow-sm"
+                        : "text-slate-600"
+                    ].join(" ")}
+                  >
+                    {getMealLabel(type)}
+                  </button>
+                );
+              }
+            )}
+          </div>
+        </section>
 
         {/* Основной контент */}
         {/* Поиск */}
@@ -1177,6 +1196,36 @@ export default function LogFoodPage() {
             Ошибка при сохранении. Попробуй ещё раз.
           </div>
         )}
+
+        {/* Окно ответов на логи (чат) */}
+        <section>
+          <h2 className="text-sm font-semibold text-slate-800 mb-1">
+            Ответы на логи
+          </h2>
+          <Card className="border-slate-200 bg-white px-3 py-2.5 rounded-2xl shadow-sm max-h-40 overflow-y-auto">
+            {logMessages.length === 0 ? (
+              <div className="text-[11px] text-slate-500">
+                Пока нет ответов. После сохранения лога здесь появится сообщение.
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                {logMessages.map((msg) => (
+                  <div key={msg.id} className="text-[11px] text-slate-700">
+                    <span className="block text-[10px] text-slate-400">
+                      {new Date(msg.created_at).toLocaleTimeString("ru-RU", {
+                        hour: "2-digit",
+                        minute: "2-digit"
+                      })}
+                    </span>
+                    <span className="inline-block bg-slate-100 rounded-xl px-2 py-1 mt-0.5">
+                      {msg.text}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        </section>
       </main>
 
       {/* Кнопка сохранения для веб-версии (вне Telegram) */}
