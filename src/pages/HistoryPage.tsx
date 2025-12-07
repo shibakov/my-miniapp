@@ -106,7 +106,7 @@ export default function HistoryPage({ onStatsChanged }: HistoryPageProps) {
   };
 
   const handleGramsChange = async (grams: number) => {
-    if (!gramsPickerItem || !dayData) return;
+    if (!gramsPickerItem || !selectedDate) return;
 
     const { logItemId } = gramsPickerItem;
     setGramsPickerItem(null);
@@ -114,17 +114,10 @@ export default function HistoryPage({ onStatsChanged }: HistoryPageProps) {
     try {
       await updateLogItem({ log_item_id: logItemId, grams });
 
-      // локально обновляем состояние
-      setDayData((prev) => {
-        if (!prev) return prev;
-        const updatedMeals = prev.meals.map((meal) => ({
-          ...meal,
-          items: meal.items.map((it) =>
-            it.log_item_id === logItemId ? { ...it, grams } : it
-          )
-        }));
-        return { ...prev, meals: updatedMeals };
-      });
+      // после успешного обновления перезагружаем день с сервера,
+      // чтобы пересчитались КБЖУ и итоги
+      const freshDay = await getHistoryByDay(selectedDate);
+      setDayData(freshDay);
 
       onStatsChanged?.();
     } catch (e) {
@@ -135,14 +128,18 @@ export default function HistoryPage({ onStatsChanged }: HistoryPageProps) {
 
   const openNutritionEditor = (item: HistoryProductItem) => {
     setEditNutritionItem(item);
-    setEditKcal(String(item.kcal));
-    setEditProtein(String(item.protein));
-    setEditFat(String(item.fat));
-    setEditCarbs(String(item.carbs));
+
+    const grams = item.grams || 100;
+    const factor = grams > 0 ? 100 / grams : 1;
+
+    setEditKcal(String(Math.round(item.kcal * factor)));
+    setEditProtein(String(Math.round(item.protein * factor)));
+    setEditFat(String(Math.round(item.fat * factor)));
+    setEditCarbs(String(Math.round(item.carbs * factor)));
   };
 
   const handleSaveNutrition = async () => {
-    if (!editNutritionItem || !editNutritionItem.dict_id) return;
+    if (!editNutritionItem || !editNutritionItem.dict_id || !selectedDate) return;
 
     const kcal = Number(editKcal.replace(",", "."));
     const protein = Number(editProtein.replace(",", "."));
@@ -163,26 +160,9 @@ export default function HistoryPage({ onStatsChanged }: HistoryPageProps) {
         carbs_100: carbs
       });
 
-      // локально обновлять продукты не обязательно (будут тянуться с сервера),
-      // но для UX можно хоть немного обновить
-      setDayData((prev) => {
-        if (!prev) return prev;
-        const updatedMeals: HistoryMeal[] = prev.meals.map((meal) => ({
-          ...meal,
-          items: meal.items.map((it) =>
-            it.dict_id === editNutritionItem.dict_id
-              ? {
-                  ...it,
-                  kcal,
-                  protein,
-                  fat,
-                  carbs
-                }
-              : it
-          )
-        }));
-        return { ...prev, meals: updatedMeals };
-      });
+      // перезагружаем день, чтобы подтянуть пересчитанные КБЖУ
+      const freshDay = await getHistoryByDay(selectedDate);
+      setDayData(freshDay);
 
       setEditNutritionItem(null);
       onStatsChanged?.();

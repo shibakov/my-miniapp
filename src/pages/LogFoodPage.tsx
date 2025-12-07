@@ -449,7 +449,7 @@ export default function LogFoodPage() {
         dict_id: item.id,
         product: item.product,
         quantity: 0,
-        source: item.source,
+        source: item.source ?? undefined,
         category: item.category,
         kcal_100: item.kcal_100,
         protein_100: item.protein_100,
@@ -501,7 +501,7 @@ export default function LogFoodPage() {
         dict_id: created.id,
         product: created.product,
         quantity: 0,
-        source: created.source,
+        source: created.source ?? undefined,
         category: created.category,
         kcal_100: created.kcal_100,
         protein_100: created.protein_100,
@@ -1179,33 +1179,19 @@ export default function LogFoodPage() {
         )}
       </main>
 
-      {/* Нижняя панель навигации + кнопка для веб-версии */}
-      <footer className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200">
-        <div className="flex justify-around px-2 pt-1 pb-1 text-[11px]">
-          <div className="flex flex-col items-center text-blue-600">
-            <span className="font-medium">Приём</span>
-          </div>
-          <div className="flex flex-col items-center text-slate-400">
-            <span>История</span>
-          </div>
-          <div className="flex flex-col items-center text-slate-400">
-            <span>Аналитика</span>
-          </div>
+      {/* Кнопка сохранения для веб-версии (вне Telegram) */}
+      {!isTelegram && (
+        <div className="px-4 pb-24 pt-2 bg-gradient-to-t from-white/80 to-transparent">
+          <Button
+            type="button"
+            disabled={!canSave || saving}
+            onClick={handleSave}
+            className="w-full h-11 rounded-2xl text-sm font-semibold shadow-md"
+          >
+            {saving ? "Сохраняю..." : "Сохранить приём"}
+          </Button>
         </div>
-
-        {!isTelegram && (
-          <div className="px-3 pb-3 pt-1 bg-white">
-            <Button
-              type="button"
-              disabled={!canSave || saving}
-              onClick={handleSave}
-              className="w-full h-11 rounded-2xl text-sm font-semibold"
-            >
-              {saving ? "Сохраняю..." : "Сохранить приём"}
-            </Button>
-          </div>
-        )}
-      </footer>
+      )}
 
       {/* Колесо выбора граммов */}
       {pickerItemId && (

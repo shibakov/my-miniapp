@@ -114,54 +114,137 @@ export default function DailyStatsCard({ refreshKey }: DailyStatsCardProps) {
         </div>
       </div>
 
-      {/* БЖУ */}
-      <div className="mt-1 grid grid-cols-3 gap-1.5 text-[10px] text-slate-600">
-        <div>
-          <div className="flex justify-between">
-            <span>Б</span>
-            <span>
-              {formatNumber(stats.protein_used)} / {formatNumber(stats.protein_limit)} г
-            </span>
+      {/* БЖУ как пайчарты */}
+      <div className="mt-2 grid grid-cols-3 gap-2 text-[10px] text-slate-600">
+        {/* Белки */}
+        <div className="flex flex-col items-center gap-1">
+          <div className="relative flex items-center justify-center">
+            <svg viewBox="0 0 40 40" className="w-10 h-10 text-sky-400">
+              {(() => {
+                const r = 16;
+                const c = 2 * Math.PI * r;
+                const value = ratio(stats.protein_used, stats.protein_limit);
+                const dash = c * value;
+                const gap = c - dash;
+                return (
+                  <>
+                    <circle
+                      cx="20"
+                      cy="20"
+                      r={r}
+                      fill="none"
+                      stroke="#e5e7eb" // slate-200
+                      strokeWidth={4}
+                    />
+                    <circle
+                      cx="20"
+                      cy="20"
+                      r={r}
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={4}
+                      strokeLinecap="round"
+                      strokeDasharray={`${dash} ${gap}`}
+                      strokeDashoffset={c * 0.25}
+                    />
+                  </>
+                );
+              })()}
+            </svg>
+            <div className="absolute text-[9px] font-medium text-slate-700">
+              {formatNumber(stats.protein_used)}
+            </div>
           </div>
-          <div className="mt-0.5 h-1 rounded-full bg-slate-100 overflow-hidden">
-            <div
-              className="h-full rounded-full bg-sky-400"
-              style={{
-                width: `${ratio(stats.protein_used, stats.protein_limit) * 100}%`
-              }}
-            />
+          <div className="text-[9px] text-slate-500 text-center">
+            Б / {formatNumber(stats.protein_limit)} г
           </div>
         </div>
-        <div>
-          <div className="flex justify-between">
-            <span>Ж</span>
-            <span>
-              {formatNumber(stats.fat_used)} / {formatNumber(stats.fat_limit)} г
-            </span>
+
+        {/* Жиры */}
+        <div className="flex flex-col items-center gap-1">
+          <div className="relative flex items-center justify-center">
+            <svg viewBox="0 0 40 40" className="w-10 h-10 text-amber-400">
+              {(() => {
+                const r = 16;
+                const c = 2 * Math.PI * r;
+                const value = ratio(stats.fat_used, stats.fat_limit);
+                const dash = c * value;
+                const gap = c - dash;
+                return (
+                  <>
+                    <circle
+                      cx="20"
+                      cy="20"
+                      r={r}
+                      fill="none"
+                      stroke="#e5e7eb"
+                      strokeWidth={4}
+                    />
+                    <circle
+                      cx="20"
+                      cy="20"
+                      r={r}
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={4}
+                      strokeLinecap="round"
+                      strokeDasharray={`${dash} ${gap}`}
+                      strokeDashoffset={c * 0.25}
+                    />
+                  </>
+                );
+              })()}
+            </svg>
+            <div className="absolute text-[9px] font-medium text-slate-700">
+              {formatNumber(stats.fat_used)}
+            </div>
           </div>
-          <div className="mt-0.5 h-1 rounded-full bg-slate-100 overflow-hidden">
-            <div
-              className="h-full rounded-full bg-amber-400"
-              style={{
-                width: `${ratio(stats.fat_used, stats.fat_limit) * 100}%`
-              }}
-            />
+          <div className="text-[9px] text-slate-500 text-center">
+            Ж / {formatNumber(stats.fat_limit)} г
           </div>
         </div>
-        <div>
-          <div className="flex justify-between">
-            <span>У</span>
-            <span>
-              {formatNumber(stats.carbs_used)} / {formatNumber(stats.carbs_limit)} г
-            </span>
+
+        {/* Углеводы */}
+        <div className="flex flex-col items-center gap-1">
+          <div className="relative flex items-center justify-center">
+            <svg viewBox="0 0 40 40" className="w-10 h-10 text-emerald-400">
+              {(() => {
+                const r = 16;
+                const c = 2 * Math.PI * r;
+                const value = ratio(stats.carbs_used, stats.carbs_limit);
+                const dash = c * value;
+                const gap = c - dash;
+                return (
+                  <>
+                    <circle
+                      cx="20"
+                      cy="20"
+                      r={r}
+                      fill="none"
+                      stroke="#e5e7eb"
+                      strokeWidth={4}
+                    />
+                    <circle
+                      cx="20"
+                      cy="20"
+                      r={r}
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={4}
+                      strokeLinecap="round"
+                      strokeDasharray={`${dash} ${gap}`}
+                      strokeDashoffset={c * 0.25}
+                    />
+                  </>
+                );
+              })()}
+            </svg>
+            <div className="absolute text-[9px] font-medium text-slate-700">
+              {formatNumber(stats.carbs_used)}
+            </div>
           </div>
-          <div className="mt-0.5 h-1 rounded-full bg-slate-100 overflow-hidden">
-            <div
-              className="h-full rounded-full bg-emerald-400"
-              style={{
-                width: `${ratio(stats.carbs_used, stats.carbs_limit) * 100}%`
-              }}
-            />
+          <div className="text-[9px] text-slate-500 text-center">
+            У / {formatNumber(stats.carbs_limit)} г
           </div>
         </div>
       </div>
