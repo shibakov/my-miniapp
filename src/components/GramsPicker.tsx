@@ -64,12 +64,6 @@ export default function GramsPicker({ value, onChange, onClose }: Props) {
 
         {/* Wheel container */}
         <div className="relative h-48 overflow-hidden">
-          {/* Индикатор выбранной строки */}
-          <div
-            className="absolute left-0 right-0 pointer-events-none border-y border-gray-300"
-            style={{ top: 22, height: 44 }}
-          ></div>
-
           <div
             ref={scrollRef}
             className="overflow-y-scroll h-full snap-y snap-mandatory no-scrollbar"
@@ -79,7 +73,9 @@ export default function GramsPicker({ value, onChange, onClose }: Props) {
                 key={g}
                 onClick={() => onChange(g)}
                 className={`snap-center h-11 flex items-center justify-center text-lg transition-colors ${
-                  g === value ? "text-black font-semibold" : "text-gray-400"
+                  g === value
+                    ? "text-black font-semibold bg-slate-100 rounded-xl"
+                    : "text-gray-400"
                 }`}
               >
                 {g} г
