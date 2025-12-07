@@ -903,74 +903,7 @@ export default function LogFoodPage({ onLogSaved }: LogFoodPageProps) {
             )}
           </div>
 
-          {/* Результаты анализа фото и статусы */}
-          <div className="flex items-center gap-2 mb-2">
-            <h2 className="text-sm font-semibold text-slate-800">
-              Добавить по фото
-            </h2>
-            <Button
-              type="button"
-              variant="outline"
-              className="h-8 rounded-full border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 px-3 text-xs font-medium"
-              disabled={photoLoading}
-            >
-              <label
-                htmlFor="photo-input"
-                className="cursor-pointer flex items-center gap-1"
-              >
-                📸 {photoLoading ? "Анализируем..." : "Выбрать фото"}
-              </label>
-              <input
-                id="photo-input"
-                type="file"
-                accept="image/*"
-                capture="environment"
-                hidden
-                onChange={handlePhoto}
-              />
-            </Button>
-            {photoLoading && (
-              <div className="h-4 w-4 animate-spin rounded-full border-[2px] border-blue-300 border-t-blue-500" />
-            )}
-            {!photoLoading && (photoResult.length > 0 || photoPreviewUrl) && (
-              <Button
-                type="button"
-                variant="ghost"
-                className="h-8 rounded-full px-2 text-[11px] text-slate-500 hover:text-red-600 hover:bg-red-50"
-                onClick={handleClearPhotoResult}
-              >
-                Очистить
-              </Button>
-            )}
-          </div>
-
-          {/* Результаты анализа фото и статусы */}
-              type="button"
-              variant="outline"
-              className="h-8 rounded-full border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 px-3 text-xs font-medium"
-              disabled={photoLoading}
-            >
-              <label
-                htmlFor="photo-input"
-                className="cursor-pointer flex items-center gap-1"
-              >
-                📸 {photoLoading ? "Анализируем..." : "Выбрать фото"}
-              </label>
-              <input
-                id="photo-input"
-                type="file"
-                accept="image/*"
-                capture="environment"
-                hidden
-                onChange={handlePhoto}
-              />
-            </Button>
-            {photoLoading && (
-              <div className="h-4 w-4 animate-spin rounded-full border-[2px] border-blue-300 border-t-blue-500" />
-            )}
-          </div>
-
-          {/* Результаты анализа фото */}
+          {/* Статусы и результаты анализа фото */}
           {photoLoading && photoResult.length === 0 && (
             <Card className="border-slate-200 shadow-sm bg-blue-50/50">
               <div className="px-3 pt-2 pb-3 text-center">
