@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { UtensilsCrossed, History, BarChart3 } from "lucide-react";
+import { UtensilsCrossed, History, BarChart3, MessageCircle } from "lucide-react";
 import LogFoodPage from "./pages/LogFoodPage";
 import HistoryPage from "./pages/HistoryPage";
 import SplashScreen from "./components/SplashScreen";
+import ResponsesPage from "./pages/ResponsesPage";
 
 declare global {
   interface Window {
@@ -12,11 +13,19 @@ declare global {
   }
 }
 
+export interface LogResponseMessage {
+  id: string;
+  text: string;
+  created_at: string;
+  type: "system";
+}
+
 function App() {
-  const [activeTab, setActiveTab] = useState<"meal" | "history" | "analytics">(
-    "meal"
-  );
+  const [activeTab, setActiveTab] = useState<
+    "meal" | "history" | "analytics" | "responses"
+  >("meal");
   const [statsRefreshKey, setStatsRefreshKey] = useState(0);
+  const [responses, setResponses] = useState<LogResponseMessage[]>([]);
 
   useEffect(() => {
     const tg = window.Telegram?.WebApp;
@@ -30,6 +39,18 @@ function App() {
     setStatsRefreshKey((key) => key + 1);
   };
 
+  const handleLogSaved = () => {
+    setResponses((prev) => [
+      ...prev,
+      {
+        id: `${Date.now()}`,
+        text: "Лог успешно записан",
+        created_at: new Date().toISOString(),
+        type: "system"
+      }
+    ]);
+  };
+
   return (
     <>
       <SplashScreen />
@@ -37,7 +58,10 @@ function App() {
       <div className="w-full min-h-screen bg-gray-100 flex flex-col">
         <div className="flex-1">
           {activeTab === "meal" && (
-            <LogFoodPage key={statsRefreshKey} />
+            <LogFoodPage key={statsRefreshKey} onLogSaved={handleLogSaved} />
+          )}
+          {activeTab === "responses" && (
+            <ResponsesPage messages={responses} />
           )}
           {activeTab === "history" && (
             <HistoryPage onStatsChanged={handleStatsChanged} />
@@ -51,7 +75,7 @@ function App() {
 
         {/* Нижняя навигация */}
         <footer className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200">
-          <div className="flex justify-around px-3 pt-2 pb-3 text-[11px]">
+          <div className="flex justify-around px-2 pt-2 pb-3 text-[11px]">
             <button
               type="button"
               onClick={() => setActiveTab("meal")}
@@ -95,7 +119,7 @@ function App() {
             <button
               type="button"
               onClick={() => setActiveTab("analytics")}
-              className="flex flex-col items-center gap-0.5 min-w-[80px]"
+              className="flex flex-col items-center gap-0.5 min-w-[64px]"
             >
               <BarChart3
                 className={
@@ -111,6 +135,27 @@ function App() {
                 }
               >
                 Аналитика
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("responses")}
+              className="flex flex-col items-center gap-0.5 min-w-[64px]"
+            >
+              <MessageCircle
+                className={
+                  "h-5 w-5 " +
+                  (activeTab === "responses" ? "text-blue-600" : "text-slate-400")
+                }
+              />
+              <span
+                className={
+                  activeTab === "responses"
+                    ? "font-medium text-blue-600"
+                    : "text-slate-400"
+                }
+              >
+                Ответы
               </span>
             </button>
           </div>

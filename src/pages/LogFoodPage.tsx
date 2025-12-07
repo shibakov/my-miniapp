@@ -36,13 +36,6 @@ interface SelectedItem {
 
 type SaveStatus = "idle" | "success" | "error";
 
-interface LogMessage {
-  id: string;
-  text: string;
-  created_at: string;
-  type: "system";
-}
-
 interface PhotoAnalysisResult {
   product_name: string;
   quantity_g?: number;
@@ -83,7 +76,11 @@ function parseOptionalNumber(value: string): number | undefined {
   return Number.isFinite(num) && num > 0 ? num : undefined;
 }
 
-export default function LogFoodPage() {
+interface LogFoodPageProps {
+  onLogSaved?: () => void;
+}
+
+export default function LogFoodPage({ onLogSaved }: LogFoodPageProps) {
   const [mealType, setMealType] = useState<MealType>("Snack");
   const [statsRefreshKey, setStatsRefreshKey] = useState(0);
   const [query, setQuery] = useState("");
@@ -106,7 +103,6 @@ export default function LogFoodPage() {
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [pickerItemId, setPickerItemId] = useState<string | null>(null);
-  const [logMessages, setLogMessages] = useState<LogMessage[]>([]);
 
   // ---------- Photo analysis state ----------
   const [photoLoading, setPhotoLoading] = useState(false);
@@ -128,6 +124,16 @@ export default function LogFoodPage() {
   const [photoTimeoutFired, setPhotoTimeoutFired] = useState(false);
   const photoAbortControllerRef = useRef<AbortController | null>(null);
   const photoTimeoutRef = useRef<number | null>(null);
+
+  const handleClearPhotoResult = () => {
+    setPhotoResult([]);
+    setPhotoSelected([]);
+    setPhotoTotals(null);
+    setPhotoPreviewUrl(null);
+    setPhotoDebug(null);
+    setPhotoError(null);
+    setPhotoTimeoutFired(false);
+  };
 
   // ---------- Photo analysis ----------
   const handlePhoto = async (e: any) => {
@@ -616,15 +622,7 @@ export default function LogFoodPage() {
       await createMeal(payload);
 
       setSaveStatus("success");
-      setLogMessages((prev) => [
-        ...prev,
-        {
-          id: `${Date.now()}`,
-          text: "Лог успешно записан",
-          created_at: new Date().toISOString(),
-          type: "system"
-        }
-      ]);
+      onLogSaved?.();
 
       // очищаем черновик и состояние
       try {
@@ -893,27 +891,84 @@ export default function LogFoodPage() {
             {photoLoading && (
               <div className="h-4 w-4 animate-spin rounded-full border-[2px] border-blue-300 border-t-blue-500" />
             )}
+            {!photoLoading && (photoResult.length > 0 || photoPreviewUrl) && (
+              <Button
+                type="button"
+                variant="ghost"
+                className="h-8 rounded-full px-2 text-[11px] text-slate-500 hover:text-red-600 hover:bg-red-50"
+                onClick={handleClearPhotoResult}
+              >
+                Очистить
+              </Button>
+            )}
           </div>
 
-          {photoDebug && (
-            <p className="mb-1 text-[11px] text-slate-500">
-              Фото: исходный {(photoDebug.originalSize / 1024).toFixed(1)} KB →
-              отправляем {(photoDebug.processedSize / 1024).toFixed(1)} KB
-            </p>
-          )}
-
-          {photoPreviewUrl && (
-            <div className="mb-2">
-              <p className="text-[11px] text-slate-500">
-                Фото, которое отправляем на бэкенд:
-              </p>
-              <img
-                src={photoPreviewUrl}
-                alt="Предобработанное фото"
-                className="mt-1 max-w-full max-h-64 object-contain border rounded-xl bg-white"
+          {/* Результаты анализа фото и статусы */}
+          <div className="flex items-center gap-2 mb-2">
+            <h2 className="text-sm font-semibold text-slate-800">
+              Добавить по фото
+            </h2>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-8 rounded-full border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 px-3 text-xs font-medium"
+              disabled={photoLoading}
+            >
+              <label
+                htmlFor="photo-input"
+                className="cursor-pointer flex items-center gap-1"
+              >
+                📸 {photoLoading ? "Анализируем..." : "Выбрать фото"}
+              </label>
+              <input
+                id="photo-input"
+                type="file"
+                accept="image/*"
+                capture="environment"
+                hidden
+                onChange={handlePhoto}
               />
-            </div>
-          )}
+            </Button>
+            {photoLoading && (
+              <div className="h-4 w-4 animate-spin rounded-full border-[2px] border-blue-300 border-t-blue-500" />
+            )}
+            {!photoLoading && (photoResult.length > 0 || photoPreviewUrl) && (
+              <Button
+                type="button"
+                variant="ghost"
+                className="h-8 rounded-full px-2 text-[11px] text-slate-500 hover:text-red-600 hover:bg-red-50"
+                onClick={handleClearPhotoResult}
+              >
+                Очистить
+              </Button>
+            )}
+          </div>
+
+          {/* Результаты анализа фото и статусы */}
+              type="button"
+              variant="outline"
+              className="h-8 rounded-full border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 px-3 text-xs font-medium"
+              disabled={photoLoading}
+            >
+              <label
+                htmlFor="photo-input"
+                className="cursor-pointer flex items-center gap-1"
+              >
+                📸 {photoLoading ? "Анализируем..." : "Выбрать фото"}
+              </label>
+              <input
+                id="photo-input"
+                type="file"
+                accept="image/*"
+                capture="environment"
+                hidden
+                onChange={handlePhoto}
+              />
+            </Button>
+            {photoLoading && (
+              <div className="h-4 w-4 animate-spin rounded-full border-[2px] border-blue-300 border-t-blue-500" />
+            )}
+          </div>
 
           {/* Результаты анализа фото */}
           {photoLoading && photoResult.length === 0 && (
@@ -1196,36 +1251,6 @@ export default function LogFoodPage() {
             Ошибка при сохранении. Попробуй ещё раз.
           </div>
         )}
-
-        {/* Окно ответов на логи (чат) */}
-        <section>
-          <h2 className="text-sm font-semibold text-slate-800 mb-1">
-            Ответы на логи
-          </h2>
-          <Card className="border-slate-200 bg-white px-3 py-2.5 rounded-2xl shadow-sm max-h-40 overflow-y-auto">
-            {logMessages.length === 0 ? (
-              <div className="text-[11px] text-slate-500">
-                Пока нет ответов. После сохранения лога здесь появится сообщение.
-              </div>
-            ) : (
-              <div className="space-y-1.5">
-                {logMessages.map((msg) => (
-                  <div key={msg.id} className="text-[11px] text-slate-700">
-                    <span className="block text-[10px] text-slate-400">
-                      {new Date(msg.created_at).toLocaleTimeString("ru-RU", {
-                        hour: "2-digit",
-                        minute: "2-digit"
-                      })}
-                    </span>
-                    <span className="inline-block bg-slate-100 rounded-xl px-2 py-1 mt-0.5">
-                      {msg.text}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Card>
-        </section>
       </main>
 
       {/* Кнопка сохранения для веб-версии (вне Telegram) */}

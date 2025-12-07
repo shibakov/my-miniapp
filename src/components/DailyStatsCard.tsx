@@ -86,6 +86,7 @@ export default function DailyStatsCard({ refreshKey }: DailyStatsCardProps) {
   };
 
   const kcalRatio = ratio(stats.kcal_used, stats.kcal_limit);
+  const isKcalOverLimit = stats.kcal_used > stats.kcal_limit;
 
   return (
     <Card className="border-slate-200 bg-white px-3 py-2.5 rounded-2xl shadow-sm">
@@ -93,9 +94,12 @@ export default function DailyStatsCard({ refreshKey }: DailyStatsCardProps) {
         <span className="text-xs font-semibold text-slate-800">
           Дневной баланс
         </span>
-        <span className="text-[11px] text-slate-500">
-          Осталось {formatNumber(kcalLeft)} ккал
-        </span>
+        <div className="flex items-center gap-1 text-[11px] text-slate-500">
+          {isKcalOverLimit && (
+            <span className="text-[10px] text-red-500">выше лимита</span>
+          )}
+          <span>Осталось {formatNumber(kcalLeft)} ккал</span>
+        </div>
       </div>
 
       {/* Прогресс по калориям */}
@@ -104,11 +108,8 @@ export default function DailyStatsCard({ refreshKey }: DailyStatsCardProps) {
           <span>
             {formatNumber(stats.kcal_used)} / {formatNumber(stats.kcal_limit)} ккал
           </span>
-          {stats.kcal_used > stats.kcal_limit && (
-            <span className="text-[10px] text-red-500">выше лимита</span>
-          )}
         </div>
-        <div className="h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
+        <div className="h-3 w-full rounded-full bg-slate-100 overflow-hidden">
           <div
             className={
               "h-full rounded-full " +
