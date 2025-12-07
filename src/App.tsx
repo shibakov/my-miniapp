@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { UtensilsCrossed, History, BarChart3 } from "lucide-react";
 import LogFoodPage from "./pages/LogFoodPage";
 import HistoryPage from "./pages/HistoryPage";
 import SplashScreen from "./components/SplashScreen";
@@ -50,12 +51,18 @@ function App() {
 
         {/* Нижняя навигация */}
         <footer className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200">
-          <div className="flex justify-around px-2 pt-1 pb-1 text-[11px]">
+          <div className="flex justify-around px-3 pt-2 pb-3 text-[11px]">
             <button
               type="button"
               onClick={() => setActiveTab("meal")}
-              className="flex flex-col items-center"
+              className="flex flex-col items-center gap-0.5 min-w-[80px]"
             >
+              <UtensilsCrossed
+                className={
+                  "h-5 w-5 " +
+                  (activeTab === "meal" ? "text-blue-600" : "text-slate-400")
+                }
+              />
               <span
                 className={
                   activeTab === "meal" ? "font-medium text-blue-600" : "text-slate-400"
@@ -67,8 +74,14 @@ function App() {
             <button
               type="button"
               onClick={() => setActiveTab("history")}
-              className="flex flex-col items-center"
+              className="flex flex-col items-center gap-0.5 min-w-[80px]"
             >
+              <History
+                className={
+                  "h-5 w-5 " +
+                  (activeTab === "history" ? "text-blue-600" : "text-slate-400")
+                }
+              />
               <span
                 className={
                   activeTab === "history"
@@ -82,8 +95,14 @@ function App() {
             <button
               type="button"
               onClick={() => setActiveTab("analytics")}
-              className="flex flex-col items-center"
+              className="flex flex-col items-center gap-0.5 min-w-[80px]"
             >
+              <BarChart3
+                className={
+                  "h-5 w-5 " +
+                  (activeTab === "analytics" ? "text-blue-600" : "text-slate-400")
+                }
+              />
               <span
                 className={
                   activeTab === "analytics"

@@ -6,10 +6,12 @@ interface Props {
   onClose: () => void;
 }
 
-const gramsOptions = Array.from({ length: 101 }, (_, i) => i * 5); // 0..500 step 5
+// 0..500 с шагом 1 г, чтобы можно было точнее задавать граммовку
+const gramsOptions = Array.from({ length: 501 }, (_, i) => i);
 
 export default function GramsPicker({ value, onChange, onClose }: Props) {
   const ref = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -20,6 +22,21 @@ export default function GramsPicker({ value, onChange, onClose }: Props) {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [onClose]);
+
+  // При открытии/смене value прокручиваем колесо так, чтобы выбранное значение
+  // было по центру окна выбора
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (!container) return;
+
+    const index = gramsOptions.indexOf(value);
+    if (index === -1) return;
+
+    const itemHeight = 44; // h-11 ≈ 44px
+    const containerHeight = container.clientHeight;
+    const offset = index * itemHeight - containerHeight / 2 + itemHeight / 2;
+    container.scrollTop = Math.max(offset, 0);
+  }, [value]);
 
   return (
     <div className="fixed inset-0 flex items-end justify-center bg-black/40 z-50 transition-opacity">
@@ -51,7 +68,10 @@ export default function GramsPicker({ value, onChange, onClose }: Props) {
             style={{ top: "50%", marginTop: -22, height: 44 }}
           ></div>
 
-          <div className="overflow-y-scroll h-full snap-y snap-mandatory no-scrollbar">
+          <div
+            ref={scrollRef}
+            className="overflow-y-scroll h-full snap-y snap-mandatory no-scrollbar"
+          >
             {gramsOptions.map((g) => (
               <div
                 key={g}

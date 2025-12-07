@@ -79,6 +79,11 @@ export default function DailyStatsCard({ refreshKey }: DailyStatsCardProps) {
     return Math.min(used / limit, 1);
   };
 
+  const percent = (used: number, limit: number) => {
+    if (!limit) return 0;
+    return (used / limit) * 100;
+  };
+
   const kcalRatio = ratio(stats.kcal_used, stats.kcal_limit);
 
   return (
@@ -94,10 +99,13 @@ export default function DailyStatsCard({ refreshKey }: DailyStatsCardProps) {
 
       {/* Прогресс по калориям */}
       <div className="mb-1.5">
-        <div className="flex justify-between text-[10px] text-slate-500 mb-0.5">
+        <div className="flex justify-between items-center text-[10px] text-slate-500 mb-0.5">
           <span>
             {formatNumber(stats.kcal_used)} / {formatNumber(stats.kcal_limit)} ккал
           </span>
+          {stats.kcal_used > stats.kcal_limit && (
+            <span className="text-[10px] text-red-500">выше лимита</span>
+          )}
         </div>
         <div className="h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
           <div
@@ -109,7 +117,7 @@ export default function DailyStatsCard({ refreshKey }: DailyStatsCardProps) {
                 ? "bg-amber-400"
                 : "bg-red-400")
             }
-            style={{ width: `${kcalRatio * 100}%` }}
+            style={{ width: `${Math.min(kcalRatio, 1) * 100}%` }}
           />
         </div>
       </div>
@@ -151,12 +159,19 @@ export default function DailyStatsCard({ refreshKey }: DailyStatsCardProps) {
                 );
               })()}
             </svg>
-            <div className="absolute text-[9px] font-medium text-slate-700">
-              {formatNumber(stats.protein_used)}
+            <div className="absolute text-[8px] font-medium text-slate-700 leading-tight text-center">
+              {stats.protein_limit
+                ? `${Math.round(percent(stats.protein_used, stats.protein_limit))}%`
+                : "—"}
             </div>
           </div>
           <div className="text-[9px] text-slate-500 text-center">
             Б / {formatNumber(stats.protein_limit)} г
+            {stats.protein_used > stats.protein_limit && (
+              <span className="block text-[9px] text-red-500 mt-0.5">
+                выше лимита
+              </span>
+            )}
           </div>
         </div>
 
@@ -195,12 +210,19 @@ export default function DailyStatsCard({ refreshKey }: DailyStatsCardProps) {
                 );
               })()}
             </svg>
-            <div className="absolute text-[9px] font-medium text-slate-700">
-              {formatNumber(stats.fat_used)}
+            <div className="absolute text-[8px] font-medium text-slate-700 leading-tight text-center">
+              {stats.fat_limit
+                ? `${Math.round(percent(stats.fat_used, stats.fat_limit))}%`
+                : "—"}
             </div>
           </div>
           <div className="text-[9px] text-slate-500 text-center">
             Ж / {formatNumber(stats.fat_limit)} г
+            {stats.fat_used > stats.fat_limit && (
+              <span className="block text-[9px] text-red-500 mt-0.5">
+                выше лимита
+              </span>
+            )}
           </div>
         </div>
 
@@ -239,12 +261,19 @@ export default function DailyStatsCard({ refreshKey }: DailyStatsCardProps) {
                 );
               })()}
             </svg>
-            <div className="absolute text-[9px] font-medium text-slate-700">
-              {formatNumber(stats.carbs_used)}
+            <div className="absolute text-[8px] font-medium text-slate-700 leading-tight text-center">
+              {stats.carbs_limit
+                ? `${Math.round(percent(stats.carbs_used, stats.carbs_limit))}%`
+                : "—"}
             </div>
           </div>
           <div className="text-[9px] text-slate-500 text-center">
             У / {formatNumber(stats.carbs_limit)} г
+            {stats.carbs_used > stats.carbs_limit && (
+              <span className="block text-[9px] text-red-500 mt-0.5">
+                выше лимита
+              </span>
+            )}
           </div>
         </div>
       </div>

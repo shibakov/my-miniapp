@@ -458,7 +458,16 @@ export async function getHistoryDays(
 
   const statsList = await Promise.all(dates.map((date) => getDailyStats(date)));
 
-  return statsList.map((s) => ({
+  // На случай, если бэк по разным датам вернёт одну и ту же фактическую дату
+  // (например, всегда "сегодня"), убираем дубли по полю date.
+  const byDate = new Map<string, (typeof statsList)[number]>();
+  for (const s of statsList) {
+    if (!byDate.has(s.date)) {
+      byDate.set(s.date, s);
+    }
+  }
+
+  return Array.from(byDate.values()).map((s) => ({
     date: s.date,
     totals: {
       kcal: s.kcal_used,
