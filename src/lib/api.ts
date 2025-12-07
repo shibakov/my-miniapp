@@ -203,6 +203,17 @@ interface BackendDailyStats {
   items: BackendDailyItem[];
 }
 
+interface BackendLimits {
+  kcal: number;
+  protein: number;
+  fat: number;
+  carbs: number;
+}
+
+export async function getLimits(): Promise<BackendLimits> {
+  return request<BackendLimits>("/api/stats/limits");
+}
+
 // --- Category helpers (UI-only) ---
 
 export const CATEGORY_LABELS: Record<ProductCategoryKey | "other", string> = {
@@ -412,25 +423,23 @@ export async function updateLogItem(params: {
 
 export async function getDailyStats(date?: string): Promise<DailyStats> {
   const qs = date ? `?date=${encodeURIComponent(date)}` : "";
-  const data = await request<BackendDailyStats>(`/api/stats/daily${qs}`);
 
-  const used = data.macros_total;
-  const left = data.macros_left;
+  const [stats, limits] = await Promise.all([
+    request<BackendDailyStats>(`/api/stats/daily${qs}`),
+    getLimits()
+  ]);
 
-  const kcal_limit = left ? used.kcal + left.kcal : used.kcal;
-  const protein_limit = left ? used.p + left.p : used.p;
-  const fat_limit = left ? used.f + left.f : used.f;
-  const carbs_limit = left ? used.c + left.c : used.c;
+  const used = stats.macros_total;
 
   return {
-    date: data.date,
-    kcal_limit,
+    date: stats.date,
+    kcal_limit: limits.kcal,
     kcal_used: used.kcal,
-    protein_limit,
+    protein_limit: limits.protein,
     protein_used: used.p,
-    fat_limit,
+    fat_limit: limits.fat,
     fat_used: used.f,
-    carbs_limit,
+    carbs_limit: limits.carbs,
     carbs_used: used.c
   };
 }
