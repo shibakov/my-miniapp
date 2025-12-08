@@ -69,6 +69,17 @@ function getMealLabel(mealType: MealType) {
   }
 }
 
+// Авто-выбор типа приёма в зависимости от текущего времени
+// 00:00–11:59 — Завтрак, 12:00–16:59 — Обед, 17:00+ — Ужин
+function getDefaultMealType(): MealType {
+  const now = new Date();
+  const hours = now.getHours();
+
+  if (hours < 12) return "Breakfast";
+  if (hours < 17) return "Lunch";
+  return "Dinner";
+}
+
 function parseOptionalNumber(value: string): number | undefined {
   if (!value.trim()) return undefined;
   const normalized = value.replace(",", ".");
@@ -81,9 +92,10 @@ interface LogFoodPageProps {
 }
 
 export default function LogFoodPage({ onLogSaved }: LogFoodPageProps) {
-  const [mealType, setMealType] = useState<MealType>("Snack");
+  const [mealType, setMealType] = useState<MealType>(() => getDefaultMealType());
   const [statsRefreshKey, setStatsRefreshKey] = useState(0);
   const [query, setQuery] = useState("");
+  const [productsTab, setProductsTab] = useState<"search" | "photo">("search");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -757,12 +769,38 @@ export default function LogFoodPage({ onLogSaved }: LogFoodPageProps) {
           </div>
         </section>
 
+        {/* Вкладки способа добавления продуктов */}
+        <section>
+          <div className="inline-flex w-full rounded-full bg-slate-100 p-1 mb-2">
+            {["search", "photo"].map((key) => {
+              const active = productsTab === key;
+              const label = key === "search" ? "Поиск" : "Распознать по фото";
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setProductsTab(key as "search" | "photo")}
+                  className={[
+                    "flex-1 rounded-full px-3 py-1.5 text-xs font-medium transition-all",
+                    active
+                      ? "bg-slate-900 text-white shadow-sm"
+                      : "text-slate-600"
+                  ].join(" ")}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
         {/* Основной контент */}
         {/* Поиск */}
-        <section>
-          <label className="block text-xs font-medium text-slate-600 mb-1.5">
-            Поиск продукта
-          </label>
+        {productsTab === "search" && (
+          <section>
+            <label className="block text-xs font-medium text-slate-600 mb-1.5">
+              Поиск продукта
+            </label>
           <div className="relative">
             <Input
               value={query}
@@ -860,8 +898,10 @@ export default function LogFoodPage({ onLogSaved }: LogFoodPageProps) {
             </div>
           )}
         </section>
+        )}
 
         {/* Анализ фото */}
+        {productsTab === "photo" && (
         <section>
           <div className="flex items-center gap-2 mb-2">
             <h2 className="text-sm font-semibold text-slate-800">
@@ -883,7 +923,6 @@ export default function LogFoodPage({ onLogSaved }: LogFoodPageProps) {
                 id="photo-input"
                 type="file"
                 accept="image/*"
-                capture="environment"
                 hidden
                 onChange={handlePhoto}
               />
@@ -1035,6 +1074,8 @@ export default function LogFoodPage({ onLogSaved }: LogFoodPageProps) {
             </Card>
           )}
         </section>
+        )}
+
 
         {/* Выбранные продукты */}
         <section>

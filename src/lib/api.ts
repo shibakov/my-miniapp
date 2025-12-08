@@ -424,10 +424,28 @@ export async function updateLogItem(params: {
 export async function getDailyStats(date?: string): Promise<DailyStats> {
   const qs = date ? `?date=${encodeURIComponent(date)}` : "";
 
-  const [stats, limits] = await Promise.all([
-    request<BackendDailyStats>(`/api/stats/daily${qs}`),
+  const [statsRaw, limits] = await Promise.all([
+    request<BackendDailyStats | null>(`/api/stats/daily${qs}`),
     getLimits()
   ]);
+
+  // Бэк может вернуть null/пустой ответ, если за день нет логов.
+  // В этом случае считаем, что всё по нулям, но лимиты подтягиваем как обычно.
+  const stats = statsRaw ?? null;
+  if (!stats || !stats.macros_total) {
+    const targetDate = date ?? new Date().toISOString().slice(0, 10);
+    return {
+      date: targetDate,
+      kcal_limit: limits.kcal,
+      kcal_used: 0,
+      protein_limit: limits.protein,
+      protein_used: 0,
+      fat_limit: limits.fat,
+      fat_used: 0,
+      carbs_limit: limits.carbs,
+      carbs_used: 0
+    };
+  }
 
   const used = stats.macros_total;
 
@@ -480,9 +498,18 @@ export async function getHistoryDays(
 
 // История по конкретному дню через /api/stats/daily
 export async function getHistoryByDay(date: string): Promise<HistoryDay> {
-  const data = await request<BackendDailyStats>(
+  const data = await request<BackendDailyStats | null>(
     `/api/stats/daily?date=${encodeURIComponent(date)}`
   );
+
+  // Если за день нет логов, возвращаем пустую историю с нулевыми итогами
+  if (!data || !data.macros_total) {
+    return {
+      date,
+      totals: { kcal: 0, protein: 0, fat: 0, carbs: 0 },
+      meals: []
+    };
+  }
 
   // Группируем items по meal_type (упрощённый вариант, которого тебе достаточно)
   const groups = new Map<string, BackendDailyItem[]>();

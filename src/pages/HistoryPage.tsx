@@ -47,13 +47,24 @@ export default function HistoryPage({ onStatsChanged }: HistoryPageProps) {
   const [loadingDay, setLoadingDay] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Разрешаем правку только за вчерашний день
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const yesterday = new Date(today);
-  yesterday.setDate(today.getDate() - 1);
-  const editableDate = yesterday.toISOString().slice(0, 10);
-  const isEditableDay = selectedDate === editableDate;
+  // Разрешаем правку только за сегодня и вчера.
+  // Сравниваем выбранную дату из истории с сегодняшней датой по разнице в полных днях.
+  const isEditableDay = (() => {
+    if (!selectedDate) return false;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const date = new Date(selectedDate + "T00:00:00");
+    if (Number.isNaN(date.getTime())) return false;
+    date.setHours(0, 0, 0, 0);
+
+    const diffDays =
+      (today.getTime() - date.getTime()) / (1000 * 60 * 60 * 24);
+
+    // Разрешаем редактировать только сегодняшний день (0) и вчерашний (1)
+    return diffDays === 0 || diffDays === 1;
+  })();
 
   const [gramsPickerItem, setGramsPickerItem] = useState<{
     logItemId: string;
