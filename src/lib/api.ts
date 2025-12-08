@@ -203,11 +203,24 @@ interface BackendDailyStats {
   items: BackendDailyItem[];
 }
 
+interface BackendDailyStatsWithText extends BackendDailyStats {
+  text_report?: string | null;
+}
+
 interface BackendLimits {
   kcal: number;
   protein: number;
   fat: number;
   carbs: number;
+}
+
+export async function getDailyTextReport(date?: string): Promise<string | null> {
+  const qs = date ? `?date=${encodeURIComponent(date)}` : "";
+  const data = await request<BackendDailyStatsWithText | null>(
+    `/api/stats/daily${qs}`
+  );
+  if (!data) return null;
+  return data.text_report ?? null;
 }
 
 export async function getLimits(): Promise<BackendLimits> {

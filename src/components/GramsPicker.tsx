@@ -1,3 +1,4 @@
+import type React from "react";
 import { useEffect, useRef, useState } from "react";
 
 interface Props {
@@ -27,6 +28,12 @@ export default function GramsPicker({ value, onChange, onClose }: Props) {
     return clamped;
   });
 
+  // Строка для ручного ввода, всегда отображает текущий выбор
+  const [customValue, setCustomValue] = useState<string>(() => {
+    const clamped = clamp(value, 1, RANGE.length);
+    return String(clamped);
+  });
+
   // Закрытие по клику вне модалки
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -49,7 +56,7 @@ export default function GramsPicker({ value, onChange, onClose }: Props) {
     };
   }, []);
 
-  // При монтировании и смене value прокручиваем к нужной позиции
+  // При монтировании и смене value прокручиваем к нужной позиции и синхронизируем customValue
   useEffect(() => {
     const container = scrollRef.current;
     if (!container) return;
@@ -63,30 +70,38 @@ export default function GramsPicker({ value, onChange, onClose }: Props) {
     });
 
     setInternalValue(clamped);
+    setCustomValue(String(clamped));
   }, [value]);
 
-  // Snap к ближайшей строке после остановки скролла
+  // Snap к ближайшей строке после остановки скролла + быстрый прокрас выбранного значения
   const handleScroll = () => {
     const container = scrollRef.current;
     if (!container) return;
+
+    // Мгновенный пересчёт выделенного значения при каждом scroll-событии
+    const scrollTopNow = container.scrollTop;
+    const nearestIndexNow = Math.round(scrollTopNow / ROW_HEIGHT);
+    const clampedIndexNow = clamp(nearestIndexNow, 0, RANGE.length - 1);
+    const gramsNow = RANGE[clampedIndexNow];
+
+    setInternalValue(gramsNow);
+    setCustomValue(String(gramsNow));
 
     if (snapTimeoutRef.current != null) {
       window.clearTimeout(snapTimeoutRef.current);
     }
 
+    // Небольшая задержка только для плавного "прилипания" к ближайшей строке
     snapTimeoutRef.current = window.setTimeout(() => {
       const scrollTop = container.scrollTop;
       const nearestIndex = Math.round(scrollTop / ROW_HEIGHT);
       const clampedIndex = clamp(nearestIndex, 0, RANGE.length - 1);
-      const grams = RANGE[clampedIndex];
-
-      setInternalValue(grams);
 
       container.scrollTo({
         top: clampedIndex * ROW_HEIGHT,
         behavior: "smooth"
       });
-    }, 90) as unknown as number;
+    }, 50) as unknown as number;
   };
 
   useEffect(() => {
@@ -100,6 +115,7 @@ export default function GramsPicker({ value, onChange, onClose }: Props) {
   const handleSelect = (grams: number, index: number) => {
     const container = scrollRef.current;
     setInternalValue(grams);
+    setCustomValue(String(grams));
 
     if (container) {
       container.scrollTo({
@@ -109,8 +125,36 @@ export default function GramsPicker({ value, onChange, onClose }: Props) {
     }
   };
 
+  const handleCustomChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value;
+    setCustomValue(raw);
+
+    if (!raw.trim()) return; // пустое поле — не трогаем колесо
+
+    const parsed = Number(raw.replace(",", "."));
+    if (!Number.isFinite(parsed)) return;
+
+    const clamped = clamp(Math.round(parsed), 1, RANGE.length);
+    setInternalValue(clamped);
+
+    const container = scrollRef.current;
+    if (container) {
+      container.scrollTo({
+        top: (clamped - 1) * ROW_HEIGHT,
+        behavior: "smooth"
+      });
+    }
+  };
+
   const handleConfirm = () => {
-    onChange(internalValue);
+    const normalized = customValue.trim().replace(",", ".");
+    const parsed = Number(normalized);
+    const isValid =
+      Number.isFinite(parsed) && parsed >= 1 && parsed <= RANGE.length;
+
+    const finalValue = isValid ? Math.round(parsed) : internalValue;
+
+    onChange(finalValue);
     onClose();
   };
 
@@ -137,6 +181,21 @@ export default function GramsPicker({ value, onChange, onClose }: Props) {
           >
             Готово
           </button>
+        </div>
+
+        {/* Ручной ввод граммов */}
+        <div className="mb-3 px-2">
+          <label className="block text-[11px] text-slate-500 mb-1">
+            Ввести граммы вручную
+          </label>
+          <input
+            type="number"
+            inputMode="decimal"
+            className="w-full h-9 rounded-2xl border border-slate-300 px-3 text-sm"
+            placeholder="Например, 150"
+            value={customValue}
+            onChange={handleCustomChange}
+          />
         </div>
 
         {/* Wheel container: 5 видимых строк по 40px каждая */}

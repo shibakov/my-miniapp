@@ -4,6 +4,7 @@ import LogFoodPage from "./pages/LogFoodPage";
 import HistoryPage from "./pages/HistoryPage";
 import SplashScreen from "./components/SplashScreen";
 import ResponsesPage from "./pages/ResponsesPage";
+import { getDailyTextReport } from "./lib/api";
 
 declare global {
   interface Window {
@@ -39,16 +40,35 @@ function App() {
     setStatsRefreshKey((key) => key + 1);
   };
 
-  const handleLogSaved = () => {
-    setResponses((prev) => [
-      ...prev,
-      {
-        id: `${Date.now()}`,
-        text: "Лог успешно записан",
-        created_at: new Date().toISOString(),
-        type: "system"
-      }
-    ]);
+  const handleLogSaved = async () => {
+    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+
+    try {
+      const text = await getDailyTextReport(today);
+      const finalText =
+        text ?? "Лог сохранён, но текстовый отчёт пока недоступен.";
+
+      setResponses((prev) => [
+        ...prev,
+        {
+          id: `${Date.now()}`,
+          text: finalText,
+          created_at: new Date().toISOString(),
+          type: "system"
+        }
+      ]);
+    } catch (e) {
+      console.error("Не удалось получить text_report", e);
+      setResponses((prev) => [
+        ...prev,
+        {
+          id: `${Date.now()}`,
+          text: "Лог сохранён, но не удалось получить отчёт за день.",
+          created_at: new Date().toISOString(),
+          type: "system"
+        }
+      ]);
+    }
   };
 
   return (
