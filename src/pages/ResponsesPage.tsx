@@ -3,9 +3,12 @@ import type { LogResponseMessage } from "../App";
 
 interface ResponsesPageProps {
   messages: LogResponseMessage[];
+  loading?: boolean;
+  error?: string | null;
+  onRetry?: () => void;
 }
 
-export default function ResponsesPage({ messages }: ResponsesPageProps) {
+export default function ResponsesPage({ messages, loading, error, onRetry }: ResponsesPageProps) {
   return (
     <div className="flex flex-col min-h-screen bg-slate-50 pb-16">
       <header className="px-4 pt-4 pb-3 bg-white shadow-sm">
@@ -19,12 +22,35 @@ export default function ResponsesPage({ messages }: ResponsesPageProps) {
 
       <main className="flex-1 px-4 pt-3 overflow-y-auto space-y-3">
         <Card className="border-slate-200 bg-white px-3 py-2.5 rounded-2xl shadow-sm min-h-[120px]">
-          {messages.length === 0 ? (
+          {loading && messages.length === 0 && (
             <div className="text-[11px] text-slate-500">
-              Пока нет ответов. После сохранения лога здесь появится сообщение
-              «лог успешно записан», а позже — комментарии и дневные саммари.
+              Загружаем ответы за сегодня…
             </div>
-          ) : (
+          )}
+
+          {!loading && error && (
+            <div className="text-[11px] text-red-600 space-y-2">
+              <div>{error}</div>
+              {onRetry && (
+                <button
+                  type="button"
+                  onClick={onRetry}
+                  className="text-blue-600 underline underline-offset-2"
+                >
+                  Повторить запрос
+                </button>
+              )}
+            </div>
+          )}
+
+          {!loading && !error && messages.length === 0 && (
+            <div className="text-[11px] text-slate-500">
+              За сегодня ещё нет ответов. После сохранения лога здесь появятся
+              сообщения и дневные саммари.
+            </div>
+          )}
+
+          {!loading && messages.length > 0 && (
             <div className="space-y-1.5 max-h-[360px] overflow-y-auto">
               {messages.map((msg) => (
                 <div key={msg.id} className="text-[11px] text-slate-700">

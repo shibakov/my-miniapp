@@ -151,6 +151,45 @@ interface BackendFoodDictItem {
   carbs_100: string | number;
 }
 
+// /api/dict/product — персональный словарь пользователя
+interface BackendDictProduct {
+  id: number;
+  product: string;
+  source: string | null;
+  created_at: string;
+  updated_at: string;
+  kcal_100: number | null;
+  protein_100: number | null;
+  fat_100: number | null;
+  carbs_100: number | null;
+}
+
+export interface DictProduct {
+  id: string; // UI-friendly
+  product: string;
+  source: string | null;
+  created_at: string;
+  updated_at: string;
+  kcal_100: number | null;
+  protein_100: number | null;
+  fat_100: number | null;
+  carbs_100: number | null;
+}
+
+function mapBackendDictProduct(p: BackendDictProduct): DictProduct {
+  return {
+    id: String(p.id),
+    product: p.product,
+    source: p.source,
+    created_at: p.created_at,
+    updated_at: p.updated_at,
+    kcal_100: p.kcal_100,
+    protein_100: p.protein_100,
+    fat_100: p.fat_100,
+    carbs_100: p.carbs_100
+  };
+}
+
 // /api/log/add_list и /api/log/update_item
 export interface BackendDailyTotalsResponse {
   total_kcal: number;
@@ -203,8 +242,17 @@ interface BackendDailyStats {
   items: BackendDailyItem[];
 }
 
+interface BackendLogResponseItem {
+  id: number;
+  text_report: string;
+  datetime: string;
+  // остальные поля personal.log_response нам сейчас не нужны
+  [key: string]: unknown;
+}
+
 interface BackendDailyStatsWithText extends BackendDailyStats {
   text_report?: string | null;
+  log_responses?: BackendLogResponseItem[];
 }
 
 interface BackendLimits {
@@ -221,6 +269,19 @@ export async function getDailyTextReport(date?: string): Promise<string | null> 
   );
   if (!data) return null;
   return data.text_report ?? null;
+}
+
+// Список текстовых ответов по логам за день (log_responses)
+export async function getDailyLogResponses(
+  date?: string
+): Promise<BackendLogResponseItem[]> {
+  const qs = date ? `?date=${encodeURIComponent(date)}` : "";
+  const data = await request<BackendDailyStatsWithText | null>(
+    `/api/stats/daily${qs}`
+  );
+
+  if (!data || !Array.isArray(data.log_responses)) return [];
+  return data.log_responses;
 }
 
 export async function getLimits(): Promise<BackendLimits> {
@@ -330,7 +391,7 @@ export async function searchProducts(query: string): Promise<SearchResult[]> {
   }));
 }
 
-// Ручное создание продукта
+// Ручное создание продукта (через общий авто-словарь)
 export async function createProduct(input: CreateProductInput): Promise<SearchResult> {
   if (
     input.kcal_100 == null ||
@@ -367,6 +428,73 @@ export async function createProduct(input: CreateProductInput): Promise<SearchRe
     fat_100: toNumber(created.fat_100),
     carbs_100: toNumber(created.carbs_100)
   };
+}
+
+// --- Персональный словарь продуктов (/api/dict/product) ---
+
+// Список всех продуктов пользователя
+export async function getMyProducts(): Promise<DictProduct[]> {
+  const data = await request<{ items: BackendDictProduct[] }>(
+    "/api/dict/product"
+  );
+  return data.items.map(mapBackendDictProduct);
+}
+
+// Создание продукта в персональном словаре
+export async function createDictProduct(input: {
+  product: string;
+  kcal_100: number;
+  protein_100: number;
+  fat_100: number;
+  carbs_100: number;
+  source?: string;
+}): Promise<DictProduct> {
+  const body = {
+    ...input,
+    source: input.source ?? "manual"
+  };
+
+  const created = await request<BackendDictProduct>("/api/dict/product", {
+    method: "POST",
+    body: JSON.stringify(body)
+  });
+
+  return mapBackendDictProduct(created);
+}
+
+// Частичное обновление продукта
+export async function patchDictProduct(
+  product_id: string,
+  patch: Partial<{
+    product: string;
+    kcal_100: number;
+    protein_100: number;
+    fat_100: number;
+    carbs_100: number;
+    source: string | null;
+  }>
+): Promise<DictProduct> {
+  const body = {
+    product_id: Number(product_id),
+    ...patch
+  };
+
+  const updated = await request<BackendDictProduct>("/api/dict/product", {
+    method: "PATCH",
+    body: JSON.stringify(body)
+  });
+
+  return mapBackendDictProduct(updated);
+}
+
+// Удаление продукта
+export async function deleteDictProduct(product_id: string): Promise<DictProduct> {
+  const deleted = await request<BackendDictProduct>("/api/dict/product", {
+    method: "DELETE",
+    body: JSON.stringify({ product_id: Number(product_id) })
+  });
+
+  return mapBackendDictProduct(deleted);
 }
 
 // Обновление БЖУ существующего продукта

@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { UtensilsCrossed, History, BarChart3, MessageCircle } from "lucide-react";
 import LogFoodPage from "./pages/LogFoodPage";
 import HistoryPage from "./pages/HistoryPage";
 import SplashScreen from "./components/SplashScreen";
 import ResponsesPage from "./pages/ResponsesPage";
-import { getDailyTextReport } from "./lib/api";
+import MyProductsPage from "./pages/MyProductsPage";
+import { getDailyLogResponses, getDailyTextReport } from "./lib/api";
 
 declare global {
   interface Window {
@@ -27,6 +28,8 @@ function App() {
   >("meal");
   const [statsRefreshKey, setStatsRefreshKey] = useState(0);
   const [responses, setResponses] = useState<LogResponseMessage[]>([]);
+  const [responsesLoading, setResponsesLoading] = useState(false);
+  const [responsesError, setResponsesError] = useState<string | null>(null);
 
   useEffect(() => {
     const tg = window.Telegram?.WebApp;
@@ -35,6 +38,34 @@ function App() {
       tg.expand();
     }
   }, []);
+
+  const loadTodayResponses = useCallback(async () => {
+    setResponsesLoading(true);
+    setResponsesError(null);
+    try {
+      const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+      const raw = await getDailyLogResponses(today);
+      setResponses(
+        raw.map((item) => ({
+          id: String(item.id),
+          text: item.text_report,
+          created_at: item.datetime,
+          type: "system" as const
+        }))
+      );
+    } catch (e) {
+      console.error("Не удалось загрузить log_responses за сегодня", e);
+      setResponsesError("Не удалось загрузить ответы за сегодня");
+    } finally {
+      setResponsesLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === "responses") {
+      loadTodayResponses();
+    }
+  }, [activeTab, loadTodayResponses]);
 
   const handleStatsChanged = () => {
     setStatsRefreshKey((key) => key + 1);
@@ -81,16 +112,17 @@ function App() {
             <LogFoodPage key={statsRefreshKey} onLogSaved={handleLogSaved} />
           )}
           {activeTab === "responses" && (
-            <ResponsesPage messages={responses} />
+            <ResponsesPage
+              messages={responses}
+              loading={responsesLoading}
+              error={responsesError}
+              onRetry={loadTodayResponses}
+            />
           )}
           {activeTab === "history" && (
             <HistoryPage onStatsChanged={handleStatsChanged} />
           )}
-          {activeTab === "analytics" && (
-            <div className="flex items-center justify-center h-full text-xs text-slate-500">
-              Аналитика появится позже
-            </div>
-          )}
+          {activeTab === "analytics" && <MyProductsPage />}
         </div>
 
         {/* Нижняя навигация */}
@@ -154,7 +186,7 @@ function App() {
                     : "text-slate-400"
                 }
               >
-                Аналитика
+                Мои продукты
               </span>
             </button>
             <button
