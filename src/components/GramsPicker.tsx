@@ -139,15 +139,25 @@ export default function GramsPicker({ value, onChange, onClose }: Props) {
           </button>
         </div>
 
-        {/* Wheel container */}
-        <div className="relative h-48 overflow-hidden">
-          {/* Центральная подсветка (iOS-style) */}
-          <div className="pointer-events-none absolute inset-x-6 top-1/2 -translate-y-1/2 h-10 border-y border-slate-300" />
+        {/* Wheel container: 5 видимых строк по 40px каждая */}
+        <div
+          className="relative overflow-hidden"
+          style={{ height: ROW_HEIGHT * 5 }}
+        >
+          {/* Центральная подсветка (3-я строка из 5) */}
+          <div
+            className="pointer-events-none absolute inset-x-6 border-y border-slate-300"
+            style={{ top: ROW_HEIGHT * 2, height: ROW_HEIGHT }}
+          />
 
           <div
             ref={scrollRef}
             className="h-full overflow-y-scroll snap-y snap-mandatory no-scrollbar"
             onScroll={handleScroll}
+            style={{
+              paddingTop: ROW_HEIGHT * 2,
+              paddingBottom: ROW_HEIGHT * 2
+            }}
           >
             {RANGE.map((g, index) => (
               <div

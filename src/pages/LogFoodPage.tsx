@@ -797,7 +797,7 @@ export default function LogFoodPage({ onLogSaved }: LogFoodPageProps) {
         {/* Основной контент */}
         {/* Контейнер под вкладками с фиксированной высотой и внутренним скроллом */}
         <section>
-          <Card className="border-slate-200 bg-white px-3 py-2.5 rounded-2xl shadow-sm h-[320px] flex flex-col">
+          <Card className="border-slate-200 bg-white px-3 py-2.5 rounded-2xl shadow-sm flex flex-col">
             {productsTab === "search" ? (
               <div className="flex-1 flex flex-col overflow-hidden">
                 <div className="flex-none mb-1.5">
