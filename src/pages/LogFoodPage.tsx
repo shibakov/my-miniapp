@@ -795,287 +795,303 @@ export default function LogFoodPage({ onLogSaved }: LogFoodPageProps) {
         </section>
 
         {/* Основной контент */}
-        {/* Поиск */}
-        {productsTab === "search" && (
-          <section>
-            <label className="block text-xs font-medium text-slate-600 mb-1.5">
-              Поиск продукта
-            </label>
-          <div className="relative">
-            <Input
-              value={query}
-              onChange={(e) => handleQueryChange(e.target.value)}
-              placeholder="Начни вводить название…"
-              className="rounded-2xl border-slate-200 bg-white pr-10 text-sm"
-            />
-            {loading && (
-              <div className="absolute inset-y-0 right-3 flex items-center">
-                <span className="h-4 w-4 animate-spin rounded-full border-[2px] border-slate-300 border-t-blue-500" />
-              </div>
-            )}
-          </div>
+        {/* Контейнер под вкладками с фиксированной высотой и внутренним скроллом */}
+        <section>
+          <Card className="border-slate-200 bg-white px-3 py-2.5 rounded-2xl shadow-sm h-[320px] flex flex-col">
+            {productsTab === "search" ? (
+              <div className="flex-1 flex flex-col overflow-hidden">
+                <div className="flex-none mb-1.5">
+                  <label className="block text-xs font-medium text-slate-600 mb-1.5">
+                    Поиск продукта
+                  </label>
+                </div>
+                <div className="flex-none mb-2">
+                  <div className="relative">
+                    <Input
+                      value={query}
+                      onChange={(e) => handleQueryChange(e.target.value)}
+                      placeholder="Начни вводить название…"
+                      className="rounded-2xl border-slate-200 bg-white pr-10 text-sm"
+                    />
+                    {loading && (
+                      <div className="absolute inset-y-0 right-3 flex items-center">
+                        <span className="h-4 w-4 animate-spin rounded-full border-[2px] border-slate-300 border-t-blue-500" />
+                      </div>
+                    )}
+                  </div>
+                </div>
 
-          {/* Результаты поиска по категориям */}
-          {!!results.length && (
-            <Card className="mt-2 border-slate-200 shadow-sm">
-              <div className="px-3 pt-2 pb-1 text-[11px] text-slate-500 uppercase tracking-wide">
-                Результаты
-              </div>
-              <div
-                className="max-h-64 overflow-y-auto"
-                style={{ scrollSnapType: "y mandatory" }}
-              >
-                <div className="py-1 space-y-2">
-                  {groupedResults.map(([categoryKey, items]) => {
-                    const label =
-                      CATEGORY_LABELS[categoryKey] ?? CATEGORY_LABELS.other;
-                    const bgClass =
-                      CATEGORY_BG_CLASSES[categoryKey] ??
-                      CATEGORY_BG_CLASSES.other;
+                <div className="flex-1 overflow-y-auto no-scrollbar">
+                  {/* Результаты поиска по категориям */}
+                  {!!results.length && (
+                    <div
+                      className="max-h-full overflow-y-auto"
+                      style={{ scrollSnapType: "y mandatory" }}
+                    >
+                      <div className="py-1 space-y-2">
+                        {groupedResults.map(([categoryKey, items]) => {
+                          const label =
+                            CATEGORY_LABELS[categoryKey] ?? CATEGORY_LABELS.other;
+                          const bgClass =
+                            CATEGORY_BG_CLASSES[categoryKey] ??
+                            CATEGORY_BG_CLASSES.other;
 
-                    return (
-                      <div key={categoryKey} className="mb-1">
-                        <div className="px-3 pt-1 pb-1 text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
-                          {label}
+                          return (
+                            <div key={categoryKey} className="mb-1">
+                              <div className="px-3 pt-1 pb-1 text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
+                                {label}
+                              </div>
+                              <div className="space-y-1">
+                                {items.map((item) => (
+                                  <button
+                                    key={item.id ?? item.product}
+                                    type="button"
+                                    onClick={() => handleSelectProduct(item)}
+                                    className={`w-full px-3 py-2 text-left transition-colors flex flex-col gap-0.5 rounded-xl hover:bg-opacity-80 ${bgClass}`}
+                                    style={{ scrollSnapAlign: "start" }}
+                                  >
+                                    <div className="text-sm font-medium text-slate-900">
+                                      {item.product}
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                      <div className="text-[11px] text-slate-600">
+                                        {item.brand && <span>{item.brand} · </span>}
+                                        {item.kcal_100 != null && (
+                                          <span>
+                                            {Math.round(item.kcal_100)} ккал / 100 г
+                                          </span>
+                                        )}
+                                      </div>
+                                      {item.source && (
+                                        <span className="text-[10px] uppercase text-slate-400">
+                                          {item.source}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Нет результатов */}
+                  {query.trim() && !loading && results.length === 0 && (
+                    <Card className="mt-2 border-dashed border-slate-300 bg-slate-50/60 text-xs text-slate-600 px-3 py-4 shadow-none">
+                      Ничего не найдено по запросу «{query.trim()}». Ты можешь
+                      добавить этот продукт вручную.
+                    </Card>
+                  )}
+                </div>
+
+                {/* Кнопка создания нового продукта */}
+                {query.trim() && (
+                  <div className="flex-none mt-2 pt-1 border-t border-slate-100">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full h-9 rounded-full text-xs font-medium border-dashed border-slate-300"
+                      onClick={handleOpenCreateProduct}
+                    >
+                      + Добавить новый продукт
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex-1 flex flex-col overflow-hidden">
+                <div className="flex-none mb-2">
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-sm font-semibold text-slate-800">
+                      Добавить по фото
+                    </h2>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-8 rounded-full border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 px-3 text-xs font-medium"
+                      disabled={photoLoading}
+                    >
+                      <label
+                        htmlFor="photo-input"
+                        className="cursor-pointer flex items-center gap-1"
+                      >
+                        📸 {photoLoading ? "Анализируем..." : "Выбрать фото"}
+                      </label>
+                      <input
+                        id="photo-input"
+                        type="file"
+                        accept="image/*"
+                        hidden
+                        onChange={handlePhoto}
+                      />
+                    </Button>
+                    {photoLoading && (
+                      <div className="h-4 w-4 animate-spin rounded-full border-[2px] border-blue-300 border-t-blue-500" />
+                    )}
+                    {!photoLoading &&
+                      (photoResult.length > 0 || photoPreviewUrl) && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          className="h-8 rounded-full px-2 text-[11px] text-slate-500 hover:text-red-600 hover:bg-red-50"
+                          onClick={handleClearPhotoResult}
+                        >
+                          Очистить
+                        </Button>
+                      )}
+                  </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto no-scrollbar">
+                  {/* Статусы и результаты анализа фото */}
+                  {photoLoading && photoResult.length === 0 && (
+                    <Card className="border-slate-200 shadow-sm bg-blue-50/50">
+                      <div className="px-3 pt-2 pb-3 text-center">
+                        <div className="h-6 w-6 mx-auto mb-2 animate-spin rounded-full border-[2px] border-blue-300 border-t-blue-500"></div>
+                        <div className="text-sm font-medium text-slate-800 mb-1">
+                          🍽️ Считаем калории...
                         </div>
-                        <div className="space-y-1">
-                          {items.map((item) => (
-                            <button
-                              key={item.id ?? item.product}
-                              type="button"
-                              onClick={() => handleSelectProduct(item)}
-                              className={`w-full px-3 py-2 text-left transition-colors flex flex-col gap-0.5 rounded-xl hover:bg-opacity-80 ${bgClass}`}
-                              style={{ scrollSnapAlign: "start" }}
-                            >
-                              <div className="text-sm font-medium text-slate-900">
-                                {item.product}
-                              </div>
-                              <div className="flex justify-between items-center">
-                                <div className="text-[11px] text-slate-600">
-                                  {item.brand && <span>{item.brand} · </span>}
-                                  {item.kcal_100 != null && (
-                                    <span>
-                                      {Math.round(item.kcal_100)} ккал / 100 г
-                                    </span>
-                                  )}
-                                </div>
-                                {item.source && (
-                                  <span className="text-[10px] uppercase text-slate-400">
-                                    {item.source}
-                                  </span>
-                                )}
-                              </div>
-                            </button>
-                          ))}
+                        <div className="text-[11px] text-slate-500">
+                          Анализируем блюдо с помощью ИИ
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </Card>
-          )}
+                    </Card>
+                  )}
 
-          {/* Нет результатов */}
-          {query.trim() && !loading && results.length === 0 && (
-            <Card className="mt-2 border-dashed border-slate-300 bg-slate-50/60 text-xs text-slate-600 px-3 py-4 shadow-none">
-              Ничего не найдено по запросу «{query.trim()}». Ты можешь добавить
-              этот продукт вручную.
-            </Card>
-          )}
-
-          {/* Кнопка создания нового продукта */}
-          {query.trim() && (
-            <div className="mt-2">
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full h-9 rounded-full text-xs font-medium border-dashed border-slate-300"
-                onClick={handleOpenCreateProduct}
-              >
-                + Добавить новый продукт
-              </Button>
-            </div>
-          )}
-        </section>
-        )}
-
-        {/* Анализ фото */}
-        {productsTab === "photo" && (
-        <section>
-          <div className="flex items-center gap-2 mb-2">
-            <h2 className="text-sm font-semibold text-slate-800">
-              Добавить по фото
-            </h2>
-            <Button
-              type="button"
-              variant="outline"
-              className="h-8 rounded-full border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 px-3 text-xs font-medium"
-              disabled={photoLoading}
-            >
-              <label
-                htmlFor="photo-input"
-                className="cursor-pointer flex items-center gap-1"
-              >
-                📸 {photoLoading ? "Анализируем..." : "Выбрать фото"}
-              </label>
-              <input
-                id="photo-input"
-                type="file"
-                accept="image/*"
-                hidden
-                onChange={handlePhoto}
-              />
-            </Button>
-            {photoLoading && (
-              <div className="h-4 w-4 animate-spin rounded-full border-[2px] border-blue-300 border-t-blue-500" />
-            )}
-            {!photoLoading && (photoResult.length > 0 || photoPreviewUrl) && (
-              <Button
-                type="button"
-                variant="ghost"
-                className="h-8 rounded-full px-2 text-[11px] text-slate-500 hover:text-red-600 hover:bg-red-50"
-                onClick={handleClearPhotoResult}
-              >
-                Очистить
-              </Button>
-            )}
-          </div>
-
-          {/* Статусы и результаты анализа фото */}
-          {photoLoading && photoResult.length === 0 && (
-            <Card className="border-slate-200 shadow-sm bg-blue-50/50">
-              <div className="px-3 pt-2 pb-3 text-center">
-                <div className="h-6 w-6 mx-auto mb-2 animate-spin rounded-full border-[2px] border-blue-300 border-t-blue-500"></div>
-                <div className="text-sm font-medium text-slate-800 mb-1">
-                  🍽️ Считаем калории...
-                </div>
-                <div className="text-[11px] text-slate-500">
-                  Анализируем блюдо с помощью ИИ
-                </div>
-              </div>
-            </Card>
-          )}
-
-          {photoLoading && photoTimeoutFired && (
-            <Card className="mt-2 border-amber-200 bg-amber-50/80">
-              <div className="px-3 pt-2 pb-3 text-center">
-                <div className="text-sm font-medium text-amber-900 mb-1">
-                  Ожидание распознавания затянулось
-                </div>
-                <div className="text-[11px] text-amber-800 mb-2">
-                  Ты можешь отменить анализ фото и продолжить вводить продукты
-                  вручную.
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-8 rounded-full border-amber-300 bg-white text-amber-900 text-xs font-medium"
-                  onClick={handleCancelPhoto}
-                >
-                  Отменить распознавание
-                </Button>
-              </div>
-            </Card>
-          )}
-
-          {!!photoResult.length && (
-            <Card className="border-slate-200 shadow-sm bg-blue-50/50">
-              <div className="px-3 pt-2 pb-1 text-[11px] text-slate-500 uppercase tracking-wide">
-                <span className="flex items-center gap-1">
-                  🎯 Распознанные продукты
-                </span>
-              </div>
-              <div className="px-3 pb-3">
-                <div className="max-h-64 overflow-y-auto">
-                  <div className="space-y-2">
-                    {photoResult.map((item, index) => (
-                      <div
-                        key={`${item.product_name}-${index}`}
-                        className="flex flex-col gap-1 py-2 px-3 bg-white rounded-xl border border-slate-100"
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium text-slate-900">
-                            {item.product_name}
-                          </span>
-                          <span className="text-[11px] text-slate-500">
-                            {item.confidence != null &&
-                              `${Math.round(item.confidence * 100)}% уверенности`}
-                          </span>
+                  {photoLoading && photoTimeoutFired && (
+                    <Card className="mt-2 border-amber-200 bg-amber-50/80">
+                      <div className="px-3 pt-2 pb-3 text-center">
+                        <div className="text-sm font-medium text-amber-900 mb-1">
+                          Ожидание распознавания затянулось
                         </div>
-                        <div className="text-[11px] text-slate-600">
-                          {item.kcal != null &&
-                            `Ккал: ${Math.round(item.kcal)}`}
-                          {item.kcal != null &&
-                            item.protein != null &&
-                            " · "}
-                          {item.protein != null &&
-                            `Б: ${Math.round(item.protein)}г`}
-                          {item.protein != null && item.fat != null && " · "}
-                          {item.fat != null && `Ж: ${Math.round(item.fat)}г`}
-                          {item.fat != null && item.carbs != null && " · "}
-                          {item.carbs != null &&
-                            `У: ${Math.round(item.carbs)}г`}
+                        <div className="text-[11px] text-amber-800 mb-2">
+                          Ты можешь отменить анализ фото и продолжить вводить
+                          продукты вручную.
                         </div>
                         <Button
                           type="button"
                           variant="outline"
-                          className="h-9 rounded-full border-slate-300 bg-slate-50 px-3 text-xs font-medium"
-                          onClick={() =>
-                            setPhotoPickerId(
-                              photoSelected[index]?.id ?? null
-                            )
-                          }
+                          className="h-8 rounded-full border-amber-300 bg-white text-amber-900 text-xs font-medium"
+                          onClick={handleCancelPhoto}
                         >
-                          {photoSelected[index]?.quantity > 0
-                            ? `${photoSelected[index]?.quantity} г`
-                            : "Выбрать граммы"}
+                          Отменить распознавание
                         </Button>
                       </div>
-                    ))}
-                  </div>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full mt-3 h-9 rounded-full border-blue-300 bg-blue-100 text-blue-700 hover:bg-blue-200 text-sm font-medium"
-                  onClick={() => {
-                    if (photoSelected.length > 0) {
-                      setSelected((prev) => [...prev, ...photoSelected]);
-                      setPhotoSelected([]);
-                      setPhotoResult([]);
-                      setPhotoTotals(null);
-                      setPhotoPickerId(null);
-                      setSaveStatus("idle");
-                    }
-                  }}
-                >
-                  Добавить отмеченные в приём ({photoSelected.length})
-                </Button>
-              </div>
-            </Card>
-          )}
+                    </Card>
+                  )}
 
-          {photoError && (
-            <Card className="border-red-200 shadow-sm bg-red-50/50">
-              <div className="px-3 pt-2 pb-3 text-center">
-                <div className="text-sm font-medium text-red-800 mb-1">
-                  ❌ Ошибка при анализе фото
-                </div>
-                <div className="text-[11px] text-red-600">{photoError}</div>
-              </div>
-            </Card>
-          )}
+                  {!!photoResult.length && (
+                    <Card className="border-slate-200 shadow-sm bg-blue-50/50">
+                      <div className="px-3 pt-2 pb-1 text-[11px] text-slate-500 uppercase tracking-wide">
+                        <span className="flex items-center gap-1">
+                          🎯 Распознанные продукты
+                        </span>
+                      </div>
+                      <div className="px-3 pb-3">
+                        <div className="max-h-40 overflow-y-auto">
+                          <div className="space-y-2">
+                            {photoResult.map((item, index) => (
+                              <div
+                                key={`${item.product_name}-${index}`}
+                                className="flex flex-col gap-1 py-2 px-3 bg-white rounded-xl border border-slate-100"
+                              >
+                                <div className="flex items-center justify-between">
+                                  <span className="text-sm font-medium text-slate-900">
+                                    {item.product_name}
+                                  </span>
+                                  <span className="text-[11px] text-slate-500">
+                                    {item.confidence != null &&
+                                      `${Math.round(item.confidence * 100)}% уверенности`}
+                                  </span>
+                                </div>
+                                <div className="text-[11px] text-slate-600">
+                                  {item.kcal != null &&
+                                    `Ккал: ${Math.round(item.kcal)}`}
+                                  {item.kcal != null &&
+                                    item.protein != null &&
+                                    " · "}
+                                  {item.protein != null &&
+                                    `Б: ${Math.round(item.protein)}г`}
+                                  {item.protein != null &&
+                                    item.fat != null &&
+                                    " · "}
+                                  {item.fat != null &&
+                                    `Ж: ${Math.round(item.fat)}г`}
+                                  {item.fat != null &&
+                                    item.carbs != null &&
+                                    " · "}
+                                  {item.carbs != null &&
+                                    `У: ${Math.round(item.carbs)}г`}
+                                </div>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  className="h-9 rounded-full border-slate-300 bg-slate-50 px-3 text-xs font-medium"
+                                  onClick={() =>
+                                    setPhotoPickerId(
+                                      photoSelected[index]?.id ?? null
+                                    )
+                                  }
+                                >
+                                  {photoSelected[index]?.quantity > 0
+                                    ? `${photoSelected[index]?.quantity} г`
+                                    : "Выбрать граммы"}
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="w-full mt-3 h-9 rounded-full border-blue-300 bg-blue-100 text-blue-700 hover:bg-blue-200 text-sm font-medium"
+                          onClick={() => {
+                            if (photoSelected.length > 0) {
+                              setSelected((prev) => [
+                                ...prev,
+                                ...photoSelected
+                              ]);
+                              setPhotoSelected([]);
+                              setPhotoResult([]);
+                              setPhotoTotals(null);
+                              setPhotoPickerId(null);
+                              setSaveStatus("idle");
+                            }
+                          }}
+                        >
+                          Добавить отмеченные в приём ({photoSelected.length})
+                        </Button>
+                      </div>
+                    </Card>
+                  )}
 
-          {!photoResult.length && !photoLoading && !photoError && (
-            <Card className="border-dashed border-slate-300 bg-slate-50/60 text-xs text-slate-500 px-3 py-4 shadow-none">
-              Выбери фото блюда, и мы попробуем распознать продукты в нём
-              автоматически.
-            </Card>
-          )}
+                  {photoError && (
+                    <Card className="border-red-200 shadow-sm bg-red-50/50">
+                      <div className="px-3 pt-2 pb-3 text-center">
+                        <div className="text-sm font-medium text-red-800 mb-1">
+                          ❌ Ошибка при анализе фото
+                        </div>
+                        <div className="text-[11px] text-red-600">
+                          {photoError}
+                        </div>
+                      </div>
+                    </Card>
+                  )}
+
+                  {!photoResult.length && !photoLoading && !photoError && (
+                    <Card className="border-dashed border-slate-300 bg-slate-50/60 text-xs text-slate-500 px-3 py-4 shadow-none">
+                      Выбери фото блюда, и мы попробуем распознать продукты в
+                      нём автоматически.
+                    </Card>
+                  )}
+                </div>
+              </div>
+            )}
+          </Card>
         </section>
-        )}
-
 
         {/* Выбранные продукты */}
         <section>

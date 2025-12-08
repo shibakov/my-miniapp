@@ -2,124 +2,128 @@ import { useEffect, useRef, useState } from "react";
 
 interface Props {
   value: number;
+  // Вызывается ТОЛЬКО по нажатию «Готово» — финальное значение
   onChange: (value: number) => void;
+  // Закрытие по «Отмена» или клику вне
   onClose: () => void;
 }
 
-// 0..500 с шагом 5 г — колесо крутится быстрее, но при этом
-// пользователь может ввести любое значение руками в поле ввода.
-const gramsOptions = Array.from({ length: 101 }, (_, i) => i * 5);
-
-const ITEM_HEIGHT = 44; // h-11 ≈ 44px
-const CONTAINER_HEIGHT = 192; // h-48 ≈ 192px
-const CENTER_OFFSET = CONTAINER_HEIGHT / 2 - ITEM_HEIGHT / 2; // смещение до центральной строки
+// Эталонный диапазон 1–1000 г с шагом 1 г
+const RANGE = Array.from({ length: 1000 }, (_, i) => i + 1);
+const ROW_HEIGHT = 40; // высота строки как в iOS
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
 export default function GramsPicker({ value, onChange, onClose }: Props) {
-  const ref = useRef<HTMLDivElement>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const snapTimeoutRef = useRef<number | null>(null);
 
-  // Внутреннее значение, которое отображается в поле ввода (любой грамм)
-  const [internalValue, setInternalValue] = useState<number>(value);
-
-  // Индекс выбранного значения на колесе (шаг 5 г)
-  const [selectedIndex, setSelectedIndex] = useState<number>(() => {
-    const initial = Math.round(value / 5);
-    return clamp(initial, 0, gramsOptions.length - 1);
+  // Внутреннее выбранное значение, пока пользователь крутит колесо
+  const [internalValue, setInternalValue] = useState<number>(() => {
+    const clamped = clamp(value, 1, RANGE.length);
+    return clamped;
   });
 
   // Закрытие по клику вне модалки
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
+      if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
         onClose();
       }
     };
     document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    return () => {
+      document.removeEventListener("mousedown", handler);
+    };
   }, [onClose]);
 
-  // Синхронизация с внешним value (если модалка открыта для другого продукта)
+  // Блокируем скролл фона, пока открыт пикер
   useEffect(() => {
-    setInternalValue(value);
-    const idx = clamp(Math.round(value / 5), 0, gramsOptions.length - 1);
-    setSelectedIndex(idx);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, []);
 
+  // При монтировании и смене value прокручиваем к нужной позиции
+  useEffect(() => {
     const container = scrollRef.current;
     if (!container) return;
 
-    const targetScrollTop = idx * ITEM_HEIGHT - CENTER_OFFSET;
-    container.scrollTop = clamp(targetScrollTop, 0, container.scrollHeight);
+    const clamped = clamp(value, 1, RANGE.length);
+    const index = clamped - 1; // RANGE начинается с 1
+
+    // Мгновенный скролл к текущему значению
+    container.scrollTo({
+      top: index * ROW_HEIGHT
+    });
+
+    setInternalValue(clamped);
   }, [value]);
 
-  // Обработчик ввода руками
-  const handleManualChange = (raw: string) => {
-    const numeric = Number(raw.replace(/[^0-9]/g, ""));
-    if (Number.isNaN(numeric)) {
-      setInternalValue(0);
-      onChange(0);
-      setSelectedIndex(0);
-      const container = scrollRef.current;
-      if (container) container.scrollTop = 0;
-      return;
-    }
-
-    const clamped = clamp(numeric, 0, 500);
-    setInternalValue(clamped);
-    onChange(clamped);
-
-    const idx = clamp(Math.round(clamped / 5), 0, gramsOptions.length - 1);
-    setSelectedIndex(idx);
-
-    const container = scrollRef.current;
-    if (container) {
-      const targetScrollTop = idx * ITEM_HEIGHT - CENTER_OFFSET;
-      container.scrollTop = clamp(targetScrollTop, 0, container.scrollHeight);
-    }
-  };
-
-  // Обработчик скролла: находим ближайшее значение по центру колеса
+  // Snap к ближайшей строке после остановки скролла
   const handleScroll = () => {
     const container = scrollRef.current;
     if (!container) return;
 
-    const scrollTop = container.scrollTop;
-    const approxIndex = Math.round((scrollTop + CENTER_OFFSET) / ITEM_HEIGHT);
-    const idx = clamp(approxIndex, 0, gramsOptions.length - 1);
+    if (snapTimeoutRef.current != null) {
+      window.clearTimeout(snapTimeoutRef.current);
+    }
 
-    if (idx === selectedIndex) return;
+    snapTimeoutRef.current = window.setTimeout(() => {
+      const scrollTop = container.scrollTop;
+      const nearestIndex = Math.round(scrollTop / ROW_HEIGHT);
+      const clampedIndex = clamp(nearestIndex, 0, RANGE.length - 1);
+      const grams = RANGE[clampedIndex];
 
-    const grams = gramsOptions[idx];
-    setSelectedIndex(idx);
-    setInternalValue(grams);
-    onChange(grams);
+      setInternalValue(grams);
+
+      container.scrollTo({
+        top: clampedIndex * ROW_HEIGHT,
+        behavior: "smooth"
+      });
+    }, 90) as unknown as number;
   };
 
-  // Клик по конкретному значению в колесе
-  const handleSelectFromWheel = (grams: number, index: number) => {
-    setInternalValue(grams);
-    setSelectedIndex(index);
-    onChange(grams);
+  useEffect(() => {
+    return () => {
+      if (snapTimeoutRef.current != null) {
+        window.clearTimeout(snapTimeoutRef.current);
+      }
+    };
+  }, []);
 
+  const handleSelect = (grams: number, index: number) => {
     const container = scrollRef.current;
+    setInternalValue(grams);
+
     if (container) {
-      const targetScrollTop = index * ITEM_HEIGHT - CENTER_OFFSET;
-      container.scrollTop = clamp(targetScrollTop, 0, container.scrollHeight);
+      container.scrollTo({
+        top: index * ROW_HEIGHT,
+        behavior: "smooth"
+      });
     }
   };
 
+  const handleConfirm = () => {
+    onChange(internalValue);
+    onClose();
+  };
+
   return (
-    <div className="fixed inset-0 flex items-end justify-center bg-black/40 z-50 transition-opacity">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 transition-opacity">
       <div
-        ref={ref}
+        ref={modalRef}
         className="w-full bg-white rounded-t-3xl p-4 pb-6 shadow-xl animate-slide-up"
       >
         {/* Header */}
         <div className="flex justify-between items-center mb-3 px-2">
           <button
+            type="button"
             onClick={onClose}
             className="text-blue-500 text-sm font-medium"
           >
@@ -127,49 +131,40 @@ export default function GramsPicker({ value, onChange, onClose }: Props) {
           </button>
 
           <button
-            onClick={onClose}
+            type="button"
+            onClick={handleConfirm}
             className="text-blue-600 text-sm font-semibold"
           >
             Готово
           </button>
         </div>
 
-        {/* Поле для ручного ввода граммовки */}
-        <div className="mb-3 px-2">
-          <input
-            type="number"
-            min={0}
-            max={500}
-            value={Number.isNaN(internalValue) ? "" : internalValue}
-            onChange={(e) => handleManualChange(e.target.value)}
-            className="w-full h-9 rounded-2xl border border-slate-300 px-3 text-sm text-center"
-          />
-          <div className="mt-1 text-[11px] text-slate-500 text-center">
-            Можно ввести любое значение, колесо двигается с шагом 5 г.
-          </div>
-        </div>
-
         {/* Wheel container */}
         <div className="relative h-48 overflow-hidden">
-          {/* Центральная линия выбора (iOS-style) */}
-          <div className="pointer-events-none absolute inset-x-3 top-1/2 -translate-y-1/2 h-11 rounded-xl border border-sky-200 bg-sky-50/30" />
+          {/* Центральная подсветка (iOS-style) */}
+          <div className="pointer-events-none absolute inset-x-6 top-1/2 -translate-y-1/2 h-10 border-y border-slate-300" />
 
           <div
             ref={scrollRef}
-            className="overflow-y-scroll h-full no-scrollbar"
+            className="h-full overflow-y-scroll snap-y snap-mandatory no-scrollbar"
             onScroll={handleScroll}
           >
-            {gramsOptions.map((g, index) => (
+            {RANGE.map((g, index) => (
               <div
                 key={g}
-                onClick={() => handleSelectFromWheel(g, index)}
-                className={`h-11 flex items-center justify-center text-lg transition-colors ${
-                  index === selectedIndex
-                    ? "text-slate-900 font-semibold"
-                    : "text-slate-400"
-                }`}
+                onClick={() => handleSelect(g, index)}
+                className={`snap-center flex items-center justify-center transition-all`}
+                style={{ height: ROW_HEIGHT }}
               >
-                {g} г
+                <span
+                  className={
+                    g === internalValue
+                      ? "text-black font-semibold text-xl"
+                      : "text-slate-400 text-lg"
+                  }
+                >
+                  {g} г
+                </span>
               </div>
             ))}
           </div>
