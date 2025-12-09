@@ -719,3 +719,75 @@ export async function getHistoryByDay(date: string): Promise<HistoryDay> {
     meals
   };
 }
+
+// --- Daily top products for macros ---
+
+export interface TopProductRow {
+  product: string;
+  totalGrams: number;
+  totalKcal: number;
+  totalProtein: number;
+  totalFat: number;
+  totalCarbs: number;
+}
+
+export interface DailyTopProducts {
+  date: string; // YYYY-MM-DD
+  proteinTop: TopProductRow[];
+  fatTop: TopProductRow[];
+  carbsTop: TopProductRow[];
+}
+
+export async function getDailyTopProducts(
+  date?: string
+): Promise<DailyTopProducts> {
+  const targetDate = date ?? new Date().toISOString().slice(0, 10);
+
+  const data = await request<BackendDailyStats | null>(
+    `/api/stats/daily?date=${encodeURIComponent(targetDate)}`
+  );
+
+  if (!data || !Array.isArray(data.items) || data.items.length === 0) {
+    return {
+      date: targetDate,
+      proteinTop: [],
+      fatTop: [],
+      carbsTop: []
+    };
+  }
+
+  const map = new Map<string, TopProductRow>();
+
+  for (const it of data.items) {
+    const key = it.product || "Без названия";
+    const existing = map.get(key) ?? {
+      product: key,
+      totalGrams: 0,
+      totalKcal: 0,
+      totalProtein: 0,
+      totalFat: 0,
+      totalCarbs: 0
+    };
+
+    existing.totalGrams += it.weight;
+    existing.totalKcal += it.kcal;
+    existing.totalProtein += it.protein;
+    existing.totalFat += it.fat;
+    existing.totalCarbs += it.carbs;
+
+    map.set(key, existing);
+  }
+
+  const rows = Array.from(map.values());
+
+  const byProtein = [...rows].sort((a, b) => b.totalProtein - a.totalProtein);
+  const byFat = [...rows].sort((a, b) => b.totalFat - a.totalFat);
+  const byCarbs = [...rows].sort((a, b) => b.totalCarbs - a.totalCarbs);
+
+  return {
+    date: data.date,
+    proteinTop: byProtein.slice(0, 3),
+    fatTop: byFat.slice(0, 3),
+    carbsTop: byCarbs.slice(0, 3)
+  };
+}

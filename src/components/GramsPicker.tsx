@@ -21,6 +21,7 @@ export default function GramsPicker({ value, onChange, onClose }: Props) {
   const modalRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const snapTimeoutRef = useRef<number | null>(null);
+  const isProgrammaticScroll = useRef(false);
 
   // Внутреннее выбранное значение, пока пользователь крутит колесо
   const [internalValue, setInternalValue] = useState<number>(() => {
@@ -78,6 +79,13 @@ export default function GramsPicker({ value, onChange, onClose }: Props) {
     const container = scrollRef.current;
     if (!container) return;
 
+    // Если это программный скролл (от кода), просто сбрасываем флаг и
+    // не запускаем дополнительные анимации/прилипания
+    if (isProgrammaticScroll.current) {
+      isProgrammaticScroll.current = false;
+      return;
+    }
+
     // Мгновенный пересчёт выделенного значения при каждом scroll-событии
     const scrollTopNow = container.scrollTop;
     const nearestIndexNow = Math.round(scrollTopNow / ROW_HEIGHT);
@@ -97,6 +105,7 @@ export default function GramsPicker({ value, onChange, onClose }: Props) {
       const nearestIndex = Math.round(scrollTop / ROW_HEIGHT);
       const clampedIndex = clamp(nearestIndex, 0, RANGE.length - 1);
 
+      isProgrammaticScroll.current = true;
       container.scrollTo({
         top: clampedIndex * ROW_HEIGHT,
         behavior: "smooth"
@@ -118,6 +127,7 @@ export default function GramsPicker({ value, onChange, onClose }: Props) {
     setCustomValue(String(grams));
 
     if (container) {
+      isProgrammaticScroll.current = true;
       container.scrollTo({
         top: index * ROW_HEIGHT,
         behavior: "smooth"
@@ -139,9 +149,11 @@ export default function GramsPicker({ value, onChange, onClose }: Props) {
 
     const container = scrollRef.current;
     if (container) {
+      // Для ручного ввода делаем мгновенный скролл без анимации,
+      // чтобы не было двойного "дёрганья" при каждом символе
+      isProgrammaticScroll.current = true;
       container.scrollTo({
-        top: (clamped - 1) * ROW_HEIGHT,
-        behavior: "smooth"
+        top: (clamped - 1) * ROW_HEIGHT
       });
     }
   };

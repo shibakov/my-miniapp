@@ -1,6 +1,12 @@
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
-import { getDailyStats, type DailyStats } from "@/lib/api";
+import {
+  getDailyStats,
+  getDailyTopProducts,
+  type DailyStats,
+  type DailyTopProducts,
+  type TopProductRow
+} from "@/lib/api";
 
 interface DailyStatsCardProps {
   refreshKey: number;
@@ -16,6 +22,13 @@ export default function DailyStatsCard({ refreshKey }: DailyStatsCardProps) {
   const [stats, setStats] = useState<DailyStats | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [top, setTop] = useState<DailyTopProducts | null>(null);
+  const [topLoading, setTopLoading] = useState(false);
+  const [topError, setTopError] = useState<string | null>(null);
+  const [activeMacro, setActiveMacro] = useState<"protein" | "fat" | "carbs">(
+    "protein"
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -34,6 +47,34 @@ export default function DailyStatsCard({ refreshKey }: DailyStatsCardProps) {
     };
 
     load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshKey]);
+
+  // Отдельно загружаем топ-3 продуктов по макросам
+  useEffect(() => {
+    let cancelled = false;
+    const loadTop = async () => {
+      setTopLoading(true);
+      setTopError(null);
+      try {
+        const data = await getDailyTopProducts();
+        if (!cancelled) {
+          setTop(data);
+        }
+      } catch (e) {
+        console.error("Ошибка загрузки топ-3 продуктов", e);
+        if (!cancelled) {
+          setTopError("Не удалось загрузить топ продуктов");
+        }
+      } finally {
+        if (!cancelled) setTopLoading(false);
+      }
+    };
+
+    loadTop();
 
     return () => {
       cancelled = true;
@@ -87,6 +128,13 @@ export default function DailyStatsCard({ refreshKey }: DailyStatsCardProps) {
 
   const kcalRatio = ratio(stats.kcal_used, stats.kcal_limit);
   const isKcalOverLimit = stats.kcal_used > stats.kcal_limit;
+
+  const currentTopList: TopProductRow[] = (() => {
+    if (!top) return [];
+    if (activeMacro === "protein") return top.proteinTop;
+    if (activeMacro === "fat") return top.fatTop;
+    return top.carbsTop;
+  })();
 
   return (
     <Card className="border-slate-200 bg-white px-3 py-2.5 rounded-2xl shadow-sm">
@@ -278,6 +326,73 @@ export default function DailyStatsCard({ refreshKey }: DailyStatsCardProps) {
             )}
           </div>
         </div>
+      </div>
+
+      {/* Топ-3 продуктов по макросам */}
+      <div className="mt-3 text-[10px] text-slate-600">
+        <div className="flex items-center justify-between mb-1">
+          <span className="font-semibold text-slate-800">
+            Топ-3 продуктов
+          </span>
+          <div className="inline-flex rounded-full bg-slate-100 p-0.5">
+            {[
+              { key: "protein" as const, label: "Б" },
+              { key: "fat" as const, label: "Ж" },
+              { key: "carbs" as const, label: "У" }
+            ].map((tab) => {
+              const active = activeMacro === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setActiveMacro(tab.key)}
+                  className={[
+                    "px-2 py-0.5 rounded-full text-[9px] font-medium",
+                    active
+                      ? "bg-slate-900 text-white"
+                      : "text-slate-600"
+                  ].join(" ")}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {topLoading && !top && (
+          <div className="text-slate-500">
+            Загружаем топ продуктов за сегодня…
+          </div>
+        )}
+
+        {!topLoading && topError && (
+          <div className="text-red-500">{topError}</div>
+        )}
+
+        {!topLoading && !topError && currentTopList.length === 0 && (
+          <div className="text-slate-500">
+            За сегодня ещё нет продуктов в этой категории.
+          </div>
+        )}
+
+        {!topLoading && !topError && currentTopList.length > 0 && (
+          <div className="space-y-0.5">
+            {currentTopList.map((row) => (
+              <div
+                key={row.product}
+                className="flex items-center justify-between gap-2"
+              >
+                <span className="truncate max-w-[55%] text-slate-800">
+                  {row.product}
+                </span>
+                <span className="text-slate-500">
+                  {Math.round(row.totalGrams)} г · {Math.round(row.totalKcal)} ккал
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </Card>
   );

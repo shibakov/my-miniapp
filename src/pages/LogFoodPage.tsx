@@ -797,7 +797,7 @@ export default function LogFoodPage({ onLogSaved }: LogFoodPageProps) {
         {/* Основной контент */}
         {/* Контейнер под вкладками с фиксированной высотой и внутренним скроллом */}
         <section>
-          <Card className="border-slate-200 bg-white px-3 py-2.5 rounded-2xl shadow-sm flex flex-col">
+          <Card className="border-slate-200 bg-white px-3 py-2.5 rounded-2xl shadow-sm flex flex-col min-h-[260px] max-h-[360px]">
             {productsTab === "search" ? (
               <div className="flex-1 flex flex-col overflow-hidden">
                 <div className="flex-none mb-1.5">
@@ -808,8 +808,10 @@ export default function LogFoodPage({ onLogSaved }: LogFoodPageProps) {
                 <div className="flex-none mb-2">
                   <div className="relative">
                     <Input
+                      ref={searchInputRef}
                       value={query}
                       onChange={(e) => handleQueryChange(e.target.value)}
+                      onFocus={handleSearchFocus}
                       placeholder="Начни вводить название…"
                       className="rounded-2xl border-slate-200 bg-white pr-10 text-sm"
                     />
