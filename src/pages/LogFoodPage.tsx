@@ -98,6 +98,7 @@ export default function LogFoodPage({ onLogSaved }: LogFoodPageProps) {
   const [productsTab, setProductsTab] = useState<"search" | "photo">("search");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   // Создание нового продукта
   const [showCreateProduct, setShowCreateProduct] = useState(false);
@@ -711,6 +712,18 @@ export default function LogFoodPage({ onLogSaved }: LogFoodPageProps) {
     pickerItemId
       ? selected.find((item) => item.id === pickerItemId)?.quantity ?? 0
       : 0;
+
+  const handleSearchFocus = () => {
+    // Небольшая задержка, чтобы учесть появление клавиатуры (особенно в Telegram WebApp)
+    window.setTimeout(() => {
+      if (searchInputRef.current) {
+        searchInputRef.current.scrollIntoView({
+          block: "start",
+          behavior: "smooth"
+        });
+      }
+    }, 150);
+  };
 
   // ---------- UI ----------
   return (
