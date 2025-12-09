@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { UtensilsCrossed, History, BarChart3, MessageCircle } from "lucide-react";
 import LogFoodPage from "./pages/LogFoodPage";
+import HomeMealsPage from "./pages/HomeMealsPage";
 import HistoryPage from "./pages/HistoryPage";
 import SplashScreen from "./components/SplashScreen";
 import ResponsesPage from "./pages/ResponsesPage";
@@ -26,6 +27,7 @@ function App() {
   const [activeTab, setActiveTab] = useState<
     "meal" | "history" | "analytics" | "responses"
   >("meal");
+  const [mealMode, setMealMode] = useState<"home" | "add">("home");
   const [statsRefreshKey, setStatsRefreshKey] = useState(0);
   const [responses, setResponses] = useState<LogResponseMessage[]>([]);
   const [responsesLoading, setResponsesLoading] = useState(false);
@@ -99,6 +101,10 @@ function App() {
           type: "system"
         }
       ]);
+    } finally {
+      // Обновляем главную карточку и список приёмов, возвращаемся на главный экран
+      setStatsRefreshKey((key) => key + 1);
+      setMealMode("home");
     }
   };
 
@@ -109,7 +115,18 @@ function App() {
       <div className="w-full min-h-screen bg-gray-100 flex flex-col">
         <div className="flex-1">
           {activeTab === "meal" && (
-            <LogFoodPage key={statsRefreshKey} onLogSaved={handleLogSaved} />
+            mealMode === "home" ? (
+              <HomeMealsPage
+                statsRefreshKey={statsRefreshKey}
+                onAddMeal={() => setMealMode("add")}
+              />
+            ) : (
+              <LogFoodPage
+                key={statsRefreshKey}
+                onLogSaved={handleLogSaved}
+                onBack={() => setMealMode("home")}
+              />
+            )
           )}
           {activeTab === "responses" && (
             <ResponsesPage
@@ -130,7 +147,10 @@ function App() {
           <div className="flex justify-around px-2 pt-2 pb-3 text-[11px]">
             <button
               type="button"
-              onClick={() => setActiveTab("meal")}
+              onClick={() => {
+                setActiveTab("meal");
+                setMealMode("home");
+              }}
               className="flex flex-col items-center gap-0.5 min-w-[80px]"
             >
               <UtensilsCrossed

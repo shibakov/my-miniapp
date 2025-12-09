@@ -89,9 +89,10 @@ function parseOptionalNumber(value: string): number | undefined {
 
 interface LogFoodPageProps {
   onLogSaved?: () => void;
+  onBack?: () => void;
 }
 
-export default function LogFoodPage({ onLogSaved }: LogFoodPageProps) {
+export default function LogFoodPage({ onLogSaved, onBack }: LogFoodPageProps) {
   const [mealType, setMealType] = useState<MealType>(() => getDefaultMealType());
   const [statsRefreshKey, setStatsRefreshKey] = useState(0);
   const [query, setQuery] = useState("");
@@ -636,6 +637,7 @@ export default function LogFoodPage({ onLogSaved }: LogFoodPageProps) {
 
       setSaveStatus("success");
       onLogSaved?.();
+      onBack?.();
 
       // очищаем черновик и состояние
       try {
@@ -731,17 +733,28 @@ export default function LogFoodPage({ onLogSaved }: LogFoodPageProps) {
       {/* Header */}
       <header className="px-4 pt-4 pb-3 bg-white shadow-sm">
         <div className="flex items-center justify-between mb-3">
-          <div className="flex flex-col">
-            <h1 className="text-lg font-semibold tracking-tight">
-              Добавить приём пищи
-            </h1>
-            <span className="text-[11px] text-slate-500">
-              Лог питания ·{" "}
-              {new Date().toLocaleDateString("ru-RU", {
-                day: "2-digit",
-                month: "2-digit"
-              })}
-            </span>
+          <div className="flex items-center gap-2">
+            {onBack && (
+              <button
+                type="button"
+                onClick={onBack}
+                className="text-[11px] text-slate-500 px-2 py-1 rounded-full hover:bg-slate-100"
+              >
+                Назад
+              </button>
+            )}
+            <div className="flex flex-col">
+              <h1 className="text-lg font-semibold tracking-tight">
+                Добавить приём пищи
+              </h1>
+              <span className="text-[11px] text-slate-500">
+                Лог питания ·{" "}
+                {new Date().toLocaleDateString("ru-RU", {
+                  day: "2-digit",
+                  month: "2-digit"
+                })}
+              </span>
+            </div>
           </div>
           <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] text-slate-600">
             {new Date().toLocaleTimeString("ru-RU", {
