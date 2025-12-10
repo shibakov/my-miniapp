@@ -277,52 +277,54 @@ export const AddMealScreen: React.FC<AddMealScreenProps> = ({ onBack, onSave }) 
 
       {/* Main Content */}
       <div className="flex-1 overflow-y-auto no-scrollbar pb-[180px]">
-        {/* Search & Camera & Meal Type Section */}
-        <div className="bg-white p-4 pb-6 shadow-sm rounded-b-[24px] mb-6">
-          <div className="flex gap-3 mb-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Поиск продукта..."
-                value={query}
-                onChange={(e) => handleQueryChange(e.target.value)}
-                className="w-full bg-gray-100 h-10 rounded-xl pl-10 pr-10 text-[17px] placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all"
-              />
-              {loadingSearch && (
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-gray-300 border-t-ios-blue rounded-full animate-spin" />
-              )}
-            </div>
-            <button
-              type="button"
-              disabled
-              className="w-10 h-10 bg-black/20 text-white/40 rounded-xl flex items-center justify-center shadow-md cursor-not-allowed"
-            >
-              <Camera className="w-5 h-5" />
-            </button>
-          </div>
-
-          <div>
-            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 ml-1">
-              Тип приёма пищи <span className="text-red-400">*</span>
-            </h3>
-            <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-              {MEAL_TYPE_TAGS.map((tag) => (
-                <button
-                  key={tag.value}
-                  onClick={() => composer.setMealType(tag.value)}
-                  className={`px-4 py-2 rounded-xl text-[15px] font-medium whitespace-nowrap transition-all duration-200 border ${
-                    composer.mealType === tag.value
-                      ? "bg-gray-900 text-white border-gray-900 shadow-lg shadow-gray-200 scale-[1.02]"
-                      : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"
-                  }`}
-                >
-                  {tag.label}
-                </button>
-              ))}
-            </div>
+      {/* Search & Camera & Meal Type Section */}
+      <div className="bg-white p-4 pb-6 shadow-sm rounded-b-[24px] mb-6">
+        {/* Meal Type First */}
+        <div className="mb-4">
+          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 ml-1">
+            Тип приёма пищи <span className="text-red-400">*</span>
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            {MEAL_TYPE_TAGS.map((tag) => (
+              <button
+                key={tag.value}
+                onClick={() => composer.setMealType(tag.value)}
+                className={`px-3 py-1.5 rounded-xl text-[14px] font-medium whitespace-nowrap transition-all duration-200 border ${
+                  composer.mealType === tag.value
+                    ? "bg-gray-900 text-white border-gray-900 shadow-lg shadow-gray-200 scale-[1.02]"
+                    : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"
+                }`}
+              >
+                {tag.label}
+              </button>
+            ))}
           </div>
         </div>
+
+        {/* Search & Camera Below */}
+        <div className="flex gap-3">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Поиск продукта..."
+              value={query}
+              onChange={(e) => handleQueryChange(e.target.value)}
+              className="w-full bg-gray-100 h-10 rounded-xl pl-10 pr-10 text-[17px] placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all"
+            />
+            {loadingSearch && (
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-gray-300 border-t-ios-blue rounded-full animate-spin" />
+            )}
+          </div>
+          <button
+            type="button"
+            disabled
+            className="w-10 h-10 bg-black/20 text-white/40 rounded-xl flex items-center justify-center shadow-md cursor-not-allowed"
+          >
+            <Camera className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
 
         {/* Selected Items List */}
         {selectedMealsCount > 0 && (

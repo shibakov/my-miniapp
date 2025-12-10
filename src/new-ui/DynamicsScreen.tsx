@@ -9,7 +9,7 @@ import {
   Tooltip,
   ResponsiveContainer,
   BarChart,
-  Bar
+  Bar,
 } from "recharts";
 import { getHistoryDays, getLimits, type HistoryDay } from "@/lib/api";
 
@@ -32,12 +32,13 @@ interface ChartPoint {
 function formatDayLabel(dateIso: string) {
   const d = new Date(dateIso);
   return d.toLocaleDateString("ru-RU", {
-    weekday: "short"
+    weekday: "short",
   });
 }
 
 function buildDeltaLabel(avg: number, target: number) {
-  if (!target || !Number.isFinite(avg)) return { label: "—", color: "text-gray-400" };
+  if (!target || !Number.isFinite(avg))
+    return { label: "—", color: "text-gray-400" };
 
   const diffPct = ((avg - target) / target) * 100;
   const rounded = Math.round(diffPct);
@@ -56,6 +57,7 @@ function buildDeltaLabel(avg: number, target: number) {
 export const DynamicsScreen: React.FC<DynamicsScreenProps> = ({ onBack }) => {
   const [timeframe, setTimeframe] = useState<Timeframe>("week");
   const [metric, setMetric] = useState<Metric>("calories");
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const [points, setPoints] = useState<ChartPoint[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -98,9 +100,8 @@ export const DynamicsScreen: React.FC<DynamicsScreenProps> = ({ onBack }) => {
       setLoading(true);
       setError(null);
       try {
-        const days: Array<Pick<HistoryDay, "date" | "totals">> = await getHistoryDays(
-          daysCount
-        );
+        const days: Array<Pick<HistoryDay, "date" | "totals">> =
+          await getHistoryDays(daysCount);
 
         if (cancelled) return;
 
@@ -113,7 +114,7 @@ export const DynamicsScreen: React.FC<DynamicsScreenProps> = ({ onBack }) => {
             cals: d.totals.kcal,
             protein: d.totals.protein,
             fat: d.totals.fat,
-            carbs: d.totals.carbs
+            carbs: d.totals.carbs,
           }));
 
         setPoints(chartPoints);
@@ -137,6 +138,25 @@ export const DynamicsScreen: React.FC<DynamicsScreenProps> = ({ onBack }) => {
     return Math.max(...points.map((p) => p.cals));
   }, [points]);
 
+  const calorieStats = useMemo(() => {
+    if (!points.length) return null;
+    const values = points.map((p) => p.cals);
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const current = points[points.length - 1]?.cals ?? 0;
+    return { min, max, current };
+  }, [points]);
+
+  const currentMacros = useMemo(() => {
+    if (!points.length) return null;
+    const last = points[points.length - 1];
+    return {
+      protein: last.protein,
+      fat: last.fat,
+      carbs: last.carbs,
+    };
+  }, [points]);
+
   const averages = useMemo(() => {
     if (!points.length || !limits) return null;
 
@@ -157,7 +177,7 @@ export const DynamicsScreen: React.FC<DynamicsScreenProps> = ({ onBack }) => {
       cals: total.cals / count,
       protein: total.protein / count,
       fat: total.fat / count,
-      carbs: total.carbs / count
+      carbs: total.carbs / count,
     };
 
     return {
@@ -165,9 +185,30 @@ export const DynamicsScreen: React.FC<DynamicsScreenProps> = ({ onBack }) => {
       kcalStatus: buildDeltaLabel(avg.cals, limits.kcal),
       proteinStatus: buildDeltaLabel(avg.protein, limits.protein),
       fatStatus: buildDeltaLabel(avg.fat, limits.fat),
-      carbsStatus: buildDeltaLabel(avg.carbs, limits.carbs)
+      carbsStatus: buildDeltaLabel(avg.carbs, limits.carbs),
     };
   }, [points, limits]);
+
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    setTouchStartX(e.touches[0].clientX);
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (touchStartX == null) return;
+
+    const deltaX = e.changedTouches[0].clientX - touchStartX;
+    const threshold = 40; // порог, чтобы не реагировать на мелкие движения
+
+    if (Math.abs(deltaX) > threshold) {
+      if (deltaX < 0 && metric === "calories") {
+        setMetric("macros");
+      } else if (deltaX > 0 && metric === "macros") {
+        setMetric("calories");
+      }
+    }
+
+    setTouchStartX(null);
+  };
 
   return (
     <div className="flex-1 overflow-y-auto no-scrollbar pb-24 pt-14 px-4 bg-slate-50">
@@ -191,7 +232,9 @@ export const DynamicsScreen: React.FC<DynamicsScreenProps> = ({ onBack }) => {
           <button
             onClick={() => setTimeframe("week")}
             className={`flex-1 py-1.5 px-3 text-xs font-medium rounded-lg transition-all shadow-sm ${
-              timeframe === "week" ? "bg-white text-gray-900" : "bg-transparent text-gray-500"
+              timeframe === "week"
+                ? "bg-white text-gray-900"
+                : "bg-transparent text-gray-500"
             }`}
           >
             Неделя
@@ -199,7 +242,9 @@ export const DynamicsScreen: React.FC<DynamicsScreenProps> = ({ onBack }) => {
           <button
             onClick={() => setTimeframe("month")}
             className={`flex-1 py-1.5 px-3 text-xs font-medium rounded-lg transition-all shadow-sm ${
-              timeframe === "month" ? "bg-white text-gray-900" : "bg-transparent text-gray-500"
+              timeframe === "month"
+                ? "bg-white text-gray-900"
+                : "bg-transparent text-gray-500"
             }`}
           >
             Месяц
@@ -229,8 +274,12 @@ export const DynamicsScreen: React.FC<DynamicsScreenProps> = ({ onBack }) => {
 
       {/* Main Chart Card */}
       {points.length > 0 && (
-        <div className="bg-white p-5 rounded-[24px] shadow-sm mb-6">
-          <div className="flex justify-between items-center mb-6">
+        <div
+          className="bg-white p-5 rounded-[24px] shadow-sm mb-6"
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+        >
+          <div className="flex justify-between items-center mb-3">
             <h2 className="font-semibold text-gray-900">
               {metric === "calories" ? "Калории по дням" : "Баланс БЖУ"}
             </h2>
@@ -238,17 +287,50 @@ export const DynamicsScreen: React.FC<DynamicsScreenProps> = ({ onBack }) => {
               <button
                 onClick={() => setMetric("calories")}
                 className={`w-2 h-2 rounded-full ${
-                  metric === "calories" ? "bg-blue-500 ring-2 ring-blue-200" : "bg-gray-300"
+                  metric === "calories"
+                    ? "bg-blue-500 ring-2 ring-blue-200"
+                    : "bg-gray-300"
                 }`}
               />
               <button
                 onClick={() => setMetric("macros")}
                 className={`w-2 h-2 rounded-full ${
-                  metric === "macros" ? "bg-blue-500 ring-2 ring-blue-200" : "bg-gray-300"
+                  metric === "macros"
+                    ? "bg-blue-500 ring-2 ring-blue-200"
+                    : "bg-gray-300"
                 }`}
               />
             </div>
           </div>
+
+          {metric === "calories" && calorieStats && (
+            <div className="flex flex-wrap items-center justify-between mb-4 text-xs text-gray-500 gap-x-4 gap-y-1">
+              <span>
+                Мин: <span className="font-semibold text-gray-900">{format1(calorieStats.min)}</span> ккал
+              </span>
+              <span>
+                Макс: <span className="font-semibold text-gray-900">{format1(calorieStats.max)}</span> ккал
+              </span>
+              <span>
+                Текущий: <span className="font-semibold text-gray-900">{format1(calorieStats.current)}</span> ккал
+              </span>
+            </div>
+          )}
+
+          {metric === "macros" && currentMacros && (
+            <div className="flex flex-wrap items-center justify-between mb-4 text-xs text-gray-500 gap-x-4 gap-y-1">
+              <span className="font-medium text-gray-600">Текущий день:</span>
+              <span>
+                Б <span className="font-semibold text-gray-900">{format1(currentMacros.protein)}</span> г
+              </span>
+              <span>
+                Ж <span className="font-semibold text-gray-900">{format1(currentMacros.fat)}</span> г
+              </span>
+              <span>
+                У <span className="font-semibold text-gray-900">{format1(currentMacros.carbs)}</span> г
+              </span>
+            </div>
+          )}
 
           <div className="h-[220px] w-full">
             <ResponsiveContainer width="100%" height="100%">
@@ -260,7 +342,11 @@ export const DynamicsScreen: React.FC<DynamicsScreenProps> = ({ onBack }) => {
                       <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    vertical={false}
+                    stroke="#E5E7EB"
+                  />
                   <XAxis
                     dataKey="dayLabel"
                     axisLine={false}
@@ -268,14 +354,31 @@ export const DynamicsScreen: React.FC<DynamicsScreenProps> = ({ onBack }) => {
                     tick={{ fill: "#9CA3AF", fontSize: 12 }}
                     dy={10}
                   />
-                  <YAxis hide domain={[0, maxKcal ? maxKcal * 1.1 : 100]} />
+                  <YAxis
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: "#9CA3AF", fontSize: 11 }}
+                    domain={[0, maxKcal ? maxKcal * 1.1 : 100]}
+                    tickFormatter={(value: number) => format1(value)}
+                    label={{
+                      value: "ккал",
+                      angle: -90,
+                      position: "insideLeft",
+                      fill: "#9CA3AF",
+                      fontSize: 10,
+                    }}
+                  />
                   <Tooltip
                     contentStyle={{
                       borderRadius: "12px",
                       border: "none",
-                      boxShadow: "0 4px 12px rgba(0,0,0,0.1)"
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
                     }}
-                    cursor={{ stroke: "#3B82F6", strokeWidth: 1, strokeDasharray: "4 4" }}
+                    cursor={{
+                      stroke: "#3B82F6",
+                      strokeWidth: 1,
+                      strokeDasharray: "4 4",
+                    }}
                     formatter={(value: number) => [format1(value), "ккал"]}
                     labelFormatter={(label: string) => label}
                   />
@@ -290,7 +393,11 @@ export const DynamicsScreen: React.FC<DynamicsScreenProps> = ({ onBack }) => {
                 </AreaChart>
               ) : (
                 <BarChart data={points}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    vertical={false}
+                    stroke="#E5E7EB"
+                  />
                   <XAxis
                     dataKey="dayLabel"
                     axisLine={false}
@@ -298,13 +405,29 @@ export const DynamicsScreen: React.FC<DynamicsScreenProps> = ({ onBack }) => {
                     tick={{ fill: "#9CA3AF", fontSize: 12 }}
                     dy={10}
                   />
+                  <YAxis
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: "#9CA3AF", fontSize: 11 }}
+                    tickFormatter={(value: number) => `${format1(value)} г`}
+                  />
                   <Tooltip
                     cursor={{ fill: "#F3F4F6" }}
                     contentStyle={{ borderRadius: "12px", border: "none" }}
                   />
-                  <Bar dataKey="protein" stackId="a" fill="#3B82F6" radius={[0, 0, 4, 4]} />
+                  <Bar
+                    dataKey="protein"
+                    stackId="a"
+                    fill="#3B82F6"
+                    radius={[0, 0, 4, 4]}
+                  />
                   <Bar dataKey="fat" stackId="a" fill="#A855F7" />
-                  <Bar dataKey="carbs" stackId="a" fill="#F97316" radius={[4, 4, 0, 0]} />
+                  <Bar
+                    dataKey="carbs"
+                    stackId="a"
+                    fill="#F97316"
+                    radius={[4, 4, 0, 0]}
+                  />
                 </BarChart>
               )}
             </ResponsiveContainer>
@@ -315,23 +438,35 @@ export const DynamicsScreen: React.FC<DynamicsScreenProps> = ({ onBack }) => {
       {/* Stats Grid */}
       {averages && (
         <>
-          <h3 className="text-lg font-bold text-gray-900 mb-4 px-1">Средние показатели</h3>
+          <h3 className="text-lg font-bold text-gray-900 mb-4 px-1">
+            Средние показатели
+          </h3>
           <div className="grid grid-cols-2 gap-3 mb-6">
             <div className="bg-white p-4 rounded-2xl shadow-sm">
-              <div className="text-gray-500 text-xs font-medium mb-1">Калории</div>
+              <div className="text-gray-500 text-xs font-medium mb-1">
+                Калории
+              </div>
               <div className="text-2xl font-bold text-gray-900">
                 {format1(averages.avg.cals)}
               </div>
-              <div className={`text-xs font-medium mt-1 ${averages.kcalStatus.color}`}>
+              <div
+                className={`text-xs font-medium mt-1 ${averages.kcalStatus.color}`}
+              >
                 {averages.kcalStatus.label}
               </div>
             </div>
             <div className="bg-white p-4 rounded-2xl shadow-sm">
-              <div className="text-gray-500 text-xs font-medium mb-1">Белки</div>
+              <div className="text-gray-500 text-xs font-medium mb-1">
+                Белки
+              </div>
               <div className="text-2xl font-bold text-gray-900">
                 {format1(averages.avg.protein)}г
               </div>
-              <div className={`text-xs font-medium mt-1 ${averages.proteinStatus.color}`}>
+              <div
+                className={`text-xs font-medium mt-1 ${
+                  averages.proteinStatus.color
+                }`}
+              >
                 {averages.proteinStatus.label}
               </div>
             </div>
@@ -340,16 +475,24 @@ export const DynamicsScreen: React.FC<DynamicsScreenProps> = ({ onBack }) => {
               <div className="text-2xl font-bold text-gray-900">
                 {format1(averages.avg.fat)}г
               </div>
-              <div className={`text-xs font-medium mt-1 ${averages.fatStatus.color}`}>
+              <div
+                className={`text-xs font-medium mt-1 ${averages.fatStatus.color}`}
+              >
                 {averages.fatStatus.label}
               </div>
             </div>
             <div className="bg-white p-4 rounded-2xl shadow-sm">
-              <div className="text-gray-500 text-xs font-medium mb-1">Углеводы</div>
+              <div className="text-gray-500 text-xs font-medium mb-1">
+                Углеводы
+              </div>
               <div className="text-2xl font-bold text-gray-900">
                 {format1(averages.avg.carbs)}г
               </div>
-              <div className={`text-xs font-medium mt-1 ${averages.carbsStatus.color}`}>
+              <div
+                className={`text-xs font-medium mt-1 ${
+                  averages.carbsStatus.color
+                }`}
+              >
                 {averages.carbsStatus.label}
               </div>
             </div>

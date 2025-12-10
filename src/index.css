@@ -59,10 +59,27 @@
 }
 
 @layer base {
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+  }
+
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground;
+    overflow: hidden;
+    overscroll-behavior: none;
   }
+}
+
+.app-scroll {
+  height: 100vh;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
 }
