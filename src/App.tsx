@@ -95,8 +95,8 @@ function App() {
     <>
       <SplashScreen />
 
-      <div className="w-full min-h-screen bg-ios-bg flex flex-col relative">
-      <div className="app-scroll flex-1">
+      <div className="app-scroll w-full min-h-screen bg-ios-bg flex flex-col relative">
+      <div className="flex-1">
         {activeTab === "meal" && (
             <>
               {/* Базовый домашний экран всегда под шторками */}
