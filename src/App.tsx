@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { BottomNav } from "./new-ui/BottomNav";
 import { AddMealScreen } from "./new-ui/AddMealScreen";
 import { MealDetailsScreen } from "./new-ui/MealDetailsScreen";
+import { BottomSheet } from "./new-ui/BottomSheet";
 import SplashScreen from "./components/SplashScreen";
 import ProductsScreen from "./pages/ProductsScreen";
 import HomeScreen from "./pages/HomeScreen";
@@ -94,35 +95,46 @@ function App() {
     <>
       <SplashScreen />
 
-      <div className="w-full min-h-screen bg-gray-100 flex flex-col relative">
+      <div className="w-full min-h-screen bg-ios-bg flex flex-col relative">
         <div className="flex-1">
           {activeTab === "meal" && (
-            mealMode === "home" ? (
+            <>
+              {/* Базовый домашний экран всегда под шторками */}
               <HomeScreen
                 refreshKey={statsRefreshKey}
                 onAddMeal={() => setMealMode("add")}
                 onOpenMeal={handleOpenMeal}
               />
-            ) : mealMode === "add" ? (
-              <AddMealScreen
-                key={statsRefreshKey}
-                onSave={handleLogSaved}
-                onBack={() => setMealMode("home")}
-              />
-            ) : selectedMeal && selectedMealDate ? (
-              <MealDetailsScreen
-                meal={selectedMeal}
-                date={selectedMealDate}
-                onBack={() => setMealMode("home")}
-                onUpdated={handleMealUpdated}
-              />
-            ) : (
-              <HomeScreen
-                refreshKey={statsRefreshKey}
-                onAddMeal={() => setMealMode("add")}
-                onOpenMeal={handleOpenMeal}
-              />
-            )
+
+              {/* Bottom sheet: Добавить приём пищи */}
+              <BottomSheet
+                isOpen={mealMode === "add"}
+                onClose={() => setMealMode("home")}
+                enableSwipeDown
+              >
+                <AddMealScreen
+                  key={statsRefreshKey}
+                  onSave={handleLogSaved}
+                  onBack={() => setMealMode("home")}
+                />
+              </BottomSheet>
+
+              {/* Bottom sheet: Детали приёма пищи */}
+              <BottomSheet
+                isOpen={mealMode === "details" && !!selectedMeal && !!selectedMealDate}
+                onClose={() => setMealMode("home")}
+                enableSwipeDown
+              >
+                {selectedMeal && selectedMealDate && (
+                  <MealDetailsScreen
+                    meal={selectedMeal}
+                    date={selectedMealDate}
+                    onBack={() => setMealMode("home")}
+                    onUpdated={handleMealUpdated}
+                  />
+                )}
+              </BottomSheet>
+            </>
           )}
 
           {activeTab === "history" && (

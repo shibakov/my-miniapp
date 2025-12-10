@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useRef, useCallback } from "react";
 import { Search, Camera, ChevronLeft, X, Plus, ScanLine, Minus } from "lucide-react";
 import { SwipeableItem } from "./SwipeableItem";
+import { BottomSheet } from "./BottomSheet";
 import { useMealComposer } from "@/lib/useMealComposer";
 import { round1, format1 } from "@/lib/utils";
 import {
@@ -505,139 +506,135 @@ export const AddMealScreen: React.FC<AddMealScreenProps> = ({ onBack, onSave }) 
         </div>
       )}
 
-      {/* Create Product Modal (Embedded) */}
-      {isCreatingProduct && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in sm:p-4">
-          <div className="bg-ios-bg w-full max-w-sm rounded-t-[32px] sm:rounded-[32px] p-6 shadow-2xl animate-slide-up h-[85vh] sm:h-auto overflow-y-auto">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-[22px] font-bold text-gray-900">Новый продукт</h2>
-              <button
-                onClick={() => {
-                  setIsCreatingProduct(false);
-                  resetCreateForm();
-                }}
-                className="p-2 bg-gray-200/50 rounded-full hover:bg-gray-200 transition-colors"
-              >
-                <X className="w-5 h-5 text-gray-500" />
-              </button>
+      {/* Create Product Bottom Sheet */}
+      <BottomSheet
+        isOpen={isCreatingProduct}
+        onClose={() => {
+          setIsCreatingProduct(false);
+          resetCreateForm();
+        }}
+        title="Новый продукт"
+        leftLabel="Отмена"
+        onLeftAction={() => {
+          setIsCreatingProduct(false);
+          resetCreateForm();
+        }}
+        enableSwipeDown
+      >
+        {/* Form Content */}
+        <div className="space-y-6 pt-2">
+          <button
+            onClick={simulateLabelScan}
+            className="w-full h-12 bg-black text-white rounded-xl flex items-center justify-center gap-2 font-medium active:scale-95 transition-transform"
+            disabled={showScanner}
+          >
+            {showScanner ? (
+              <>
+                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                Сканирую…
+              </>
+            ) : (
+              <>
+                <ScanLine className="w-5 h-5" />
+                Сканировать этикетку
+              </>
+            )}
+          </button>
+
+          <div className="bg-white rounded-xl overflow-hidden divide-y divide-gray-100 border border-gray-100">
+            <input
+              placeholder="Название продукта"
+              className="w-full bg-white h-12 px-4 text-[17px] text-gray-900 placeholder-gray-400 focus:outline-none"
+              value={createName}
+              onChange={(e) => setCreateName(e.target.value)}
+            />
+            <input
+              placeholder="Бренд (необязательно)"
+              className="w-full bg-white h-12 px-4 text-[17px] text-gray-900 placeholder-gray-400 focus:outline-none"
+              value={createBrand}
+              onChange={(e) => setCreateBrand(e.target.value)}
+            />
+          </div>
+
+          <div className="pl-4 pb-1 mt-4 border-b border-gray-200">
+            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+              Пищевая ценность на 100 г
+            </span>
+          </div>
+
+          <div className="bg-white rounded-xl overflow-hidden divide-y divide-gray-100 border border-gray-100">
+            <div className="flex items-center justify-between h-12 px-4">
+              <span className="text-[17px] text-gray-900">Калории</span>
+              <div className="flex items-center gap-3">
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  placeholder="0"
+                  className="w-24 text-right text-[17px] text-blue-600 placeholder-gray-300 focus:outline-none bg-transparent [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                  value={createKcal}
+                  onChange={(e) => setCreateKcal(e.target.value)}
+                />
+                <span className="text-[17px] text-gray-400 w-8 text-right">ккал</span>
+              </div>
             </div>
-
-            {/* Form Content */}
-            <div className="space-y-6">
-              <button
-                onClick={simulateLabelScan}
-                className="w-full h-12 bg-black text-white rounded-xl flex items-center justify-center gap-2 font-medium active:scale-95 transition-transform"
-                disabled={showScanner}
-              >
-                {showScanner ? (
-                  <>
-                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                    Сканирую...
-                  </>
-                ) : (
-                  <>
-                    <ScanLine className="w-5 h-5" />
-                    Сканировать этикетку
-                  </>
-                )}
-              </button>
-
-              <div className="bg-white rounded-xl overflow-hidden divide-y divide-gray-100 border border-gray-100">
+            <div className="flex items-center justify-between h-12 px-4">
+              <span className="text-[17px] text-gray-900">Белки</span>
+              <div className="flex items-center gap-3">
                 <input
-                  placeholder="Название продукта"
-                  className="w-full bg-white h-12 px-4 text-[17px] text-gray-900 placeholder-gray-400 focus:outline-none"
-                  value={createName}
-                  onChange={(e) => setCreateName(e.target.value)}
+                  type="number"
+                  inputMode="decimal"
+                  placeholder="0"
+                  className="w-24 text-right text-[17px] text-blue-600 placeholder-gray-300 focus:outline-none bg-transparent [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                  value={createProtein}
+                  onChange={(e) => setCreateProtein(e.target.value)}
                 />
+                <span className="text-[17px] text-gray-400 w-8 text-right">г</span>
+              </div>
+            </div>
+            <div className="flex items-center justify-between h-12 px-4">
+              <span className="text-[17px] text-gray-900">Жиры</span>
+              <div className="flex items-center gap-3">
                 <input
-                  placeholder="Бренд (необязательно)"
-                  className="w-full bg-white h-12 px-4 text-[17px] text-gray-900 placeholder-gray-400 focus:outline-none"
-                  value={createBrand}
-                  onChange={(e) => setCreateBrand(e.target.value)}
+                  type="number"
+                  inputMode="decimal"
+                  placeholder="0"
+                  className="w-24 text-right text-[17px] text-blue-600 placeholder-gray-300 focus:outline-none bg-transparent [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                  value={createFat}
+                  onChange={(e) => setCreateFat(e.target.value)}
                 />
+                <span className="text-[17px] text-gray-400 w-8 text-right">г</span>
               </div>
-
-              <div className="pl-4 pb-1 mt-4 border-b border-gray-200">
-                <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
-                  Пищевая ценность на 100 г
-                </span>
+            </div>
+            <div className="flex items-center justify-between h-12 px-4">
+              <span className="text-[17px] text-gray-900">Углеводы</span>
+              <div className="flex items-center gap-3">
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  placeholder="0"
+                  className="w-24 text-right text-[17px] text-blue-600 placeholder-gray-300 focus:outline-none bg-transparent [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                  value={createCarbs}
+                  onChange={(e) => setCreateCarbs(e.target.value)}
+                />
+                <span className="text-[17px] text-gray-400 w-8 text-right">г</span>
               </div>
-
-              <div className="bg-white rounded-xl overflow-hidden divide-y divide-gray-100 border border-gray-100">
-                <div className="flex items-center justify-between h-12 px-4">
-                  <span className="text-[17px] text-gray-900">Калории</span>
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="number"
-                      inputMode="decimal"
-                      placeholder="0"
-                      className="w-24 text-right text-[17px] text-blue-600 placeholder-gray-300 focus:outline-none bg-transparent [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                      value={createKcal}
-                      onChange={(e) => setCreateKcal(e.target.value)}
-                    />
-                    <span className="text-[17px] text-gray-400 w-8 text-right">ккал</span>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between h-12 px-4">
-                  <span className="text-[17px] text-gray-900">Белки</span>
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="number"
-                      inputMode="decimal"
-                      placeholder="0"
-                      className="w-24 text-right text-[17px] text-blue-600 placeholder-gray-300 focus:outline-none bg-transparent [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                      value={createProtein}
-                      onChange={(e) => setCreateProtein(e.target.value)}
-                    />
-                    <span className="text-[17px] text-gray-400 w-8 text-right">г</span>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between h-12 px-4">
-                  <span className="text-[17px] text-gray-900">Жиры</span>
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="number"
-                      inputMode="decimal"
-                      placeholder="0"
-                      className="w-24 text-right text-[17px] text-blue-600 placeholder-gray-300 focus:outline-none bg-transparent [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                      value={createFat}
-                      onChange={(e) => setCreateFat(e.target.value)}
-                    />
-                    <span className="text-[17px] text-gray-400 w-8 text-right">г</span>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between h-12 px-4">
-                  <span className="text-[17px] text-gray-900">Углеводы</span>
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="number"
-                      inputMode="decimal"
-                      placeholder="0"
-                      className="w-24 text-right text-[17px] text-blue-600 placeholder-gray-300 focus:outline-none bg-transparent [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                      value={createCarbs}
-                      onChange={(e) => setCreateCarbs(e.target.value)}
-                    />
-                    <span className="text-[17px] text-gray-400 w-8 text-right">г</span>
-                  </div>
-                </div>
-              </div>
-
-              {createError && (
-                <div className="mt-1 text-xs text-red-600">{createError}</div>
-              )}
-
-              <button
-                onClick={handleSaveCustomProduct}
-                disabled={createLoading}
-                className="w-full h-14 mt-8 bg-ios-blue text-white rounded-2xl font-bold text-[17px] shadow-lg shadow-blue-200 active:scale-95 transition-transform disabled:opacity-60"
-              >
-                {createLoading ? "Сохраняем…" : "Сохранить продукт"}
-              </button>
-              <div className="h-6" />
             </div>
           </div>
+
+          {createError && (
+            <div className="mt-1 text-xs text-red-600">{createError}</div>
+          )}
+
+          <button
+            onClick={handleSaveCustomProduct}
+            disabled={createLoading}
+            className="w-full h-14 mt-8 bg-ios-blue text-white rounded-2xl font-bold text-[17px] shadow-lg shadow-blue-200 active:scale-95 transition-transform disabled:opacity-60"
+          >
+            {createLoading ? "Сохраняем…" : "Сохранить продукт"}
+          </button>
+          <div className="h-6" />
         </div>
-      )}
+      </BottomSheet>
     </div>
   );
 };
