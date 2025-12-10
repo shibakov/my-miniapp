@@ -2,13 +2,21 @@ import React from "react";
 import { ChevronRight, Plus } from "lucide-react";
 import type { HistoryMeal } from "@/lib/api";
 import { buildProductsLine, formatMealTime, getMealLabel } from "@/lib/meal-format";
+import { SwipeableItem } from "./SwipeableItem";
 
 interface MealListProps {
   meals: HistoryMeal[];
   onAddMeal: () => void;
+  onEditMeal?: (meal: HistoryMeal) => void;
+  onDeleteMeal?: (meal: HistoryMeal) => void;
 }
 
-export const MealList: React.FC<MealListProps> = ({ meals, onAddMeal }) => {
+export const MealList: React.FC<MealListProps> = ({
+  meals,
+  onAddMeal,
+  onEditMeal,
+  onDeleteMeal
+}) => {
   const hasMeals = meals.length > 0;
 
   return (
@@ -28,38 +36,47 @@ export const MealList: React.FC<MealListProps> = ({ meals, onAddMeal }) => {
             const productsLine = buildProductsLine(meal);
             const macros = meal.totals;
 
+            const handleEdit = onEditMeal
+              ? () => onEditMeal(meal)
+              : undefined;
+            const handleDelete = onDeleteMeal
+              ? () => onDeleteMeal(meal)
+              : undefined;
+
             return (
               <div
                 key={meal.meal_id}
                 className="bg-white rounded-[20px] shadow-sm overflow-hidden border border-gray-100"
               >
-                <div className="p-4 flex justify-between items-start bg-white w-full active:bg-gray-50 transition-colors">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
-                        {getMealLabel(meal.meal_type)}
-                      </span>
-                      <span className="text-xs text-gray-400 font-medium">
-                        {formatMealTime(meal.time)}
-                      </span>
+                <SwipeableItem onEdit={handleEdit} onDelete={handleDelete}>
+                  <div className="p-4 flex justify-between items-start bg-white w-full active:bg-gray-50 transition-colors">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                          {getMealLabel(meal.meal_type)}
+                        </span>
+                        <span className="text-xs text-gray-400 font-medium">
+                          {formatMealTime(meal.time)}
+                        </span>
+                      </div>
+                      {productsLine && (
+                        <h4 className="text-gray-900 font-medium text-[15px] leading-tight mb-2 line-clamp-2">
+                          {productsLine}
+                        </h4>
+                      )}
+                      <div className="flex items-center flex-wrap gap-2 text-xs text-gray-500">
+                        <span className="font-bold text-gray-900">
+                          {Math.round(macros.kcal)} ккал
+                        </span>
+                        <span className="w-1 h-1 bg-gray-300 rounded-full" />
+                        <span>Б: {Math.round(macros.protein)}</span>
+                        <span>Ж: {Math.round(macros.fat)}</span>
+                        <span>У: {Math.round(macros.carbs)}</span>
+                      </div>
                     </div>
-                    {productsLine && (
-                      <h4 className="text-gray-900 font-medium text-[15px] leading-tight mb-2 line-clamp-2">
-                        {productsLine}
-                      </h4>
-                    )}
-                    <div className="flex items-center flex-wrap gap-2 text-xs text-gray-500">
-                      <span className="font-bold text-gray-900">
-                        {Math.round(macros.kcal)} ккал
-                      </span>
-                      <span className="w-1 h-1 bg-gray-300 rounded-full" />
-                      <span>Б: {Math.round(macros.protein)}</span>
-                      <span>Ж: {Math.round(macros.fat)}</span>
-                      <span>У: {Math.round(macros.carbs)}</span>
-                    </div>
+                    <ChevronRight className="w-5 h-5 text-gray-300 mt-1 shrink-0" />
                   </div>
-                  <ChevronRight className="w-5 h-5 text-gray-300 mt-1 shrink-0" />
-                </div>
+                </SwipeableItem>
               </div>
             );
           })}

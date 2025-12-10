@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import GramsPicker from "@/components/GramsPicker";
+import { SwipeableItem } from "@/new-ui/SwipeableItem";
 import {
   getHistoryDays,
   getHistoryByDay,
@@ -196,6 +197,15 @@ export default function HistoryPage({ onStatsChanged }: HistoryPageProps) {
 
   const selectedDayTotals = dayData?.totals;
 
+  // Временные заглушки для действий по свайпу приёмов в истории
+  const handleEditMeal = (_meal: HistoryMeal) => {
+    // TODO: добавить реальное редактирование приёма в истории
+  };
+
+  const handleDeleteMeal = (_meal: HistoryMeal) => {
+    // TODO: добавить реальное удаление приёма из истории
+  };
+
   return (
     <div className="flex flex-col min-h-screen bg-slate-50 pb-16">
       <header className="px-4 pt-4 pb-3 bg-white shadow-sm">
@@ -306,75 +316,82 @@ export default function HistoryPage({ onStatsChanged }: HistoryPageProps) {
                   key={meal.meal_id}
                   className="border-slate-200 bg-white px-3 py-2.5 rounded-2xl shadow-sm"
                 >
-                  <div className="flex items-center justify-between mb-1.5">
-                    <div className="flex flex-col">
-                      <span className="text-xs font-semibold text-slate-800">
-                        {meal.meal_type}
-                      </span>
-                      <span className="text-[10px] text-slate-500">
-                        {formatTimeLabel(meal.time)}
-                      </span>
-                    </div>
-                    <div className="text-[10px] text-slate-500 text-right">
-                      <div>
-                        <span className="font-semibold">Ккал:</span>{" "}
-                        {Math.round(meal.totals.kcal)}
+                  <SwipeableItem
+                    onEdit={() => handleEditMeal(meal)}
+                    onDelete={() => handleDeleteMeal(meal)}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <div className="flex flex-col">
+                          <span className="text-xs font-semibold text-slate-800">
+                            {meal.meal_type}
+                          </span>
+                          <span className="text-[10px] text-slate-500">
+                            {formatTimeLabel(meal.time)}
+                          </span>
+                        </div>
+                        <div className="text-[10px] text-slate-500 text-right">
+                          <div>
+                            <span className="font-semibold">Ккал:</span>{" "}
+                            {Math.round(meal.totals.kcal)}
+                          </div>
+                          <div>
+                            <span className="font-semibold">БЖУ:</span>{" "}
+                            {Math.round(meal.totals.protein)} /{" "}
+                            {Math.round(meal.totals.fat)} /{" "}
+                            {Math.round(meal.totals.carbs)} г
+                          </div>
+                        </div>
                       </div>
-                      <div>
-                        <span className="font-semibold">БЖУ:</span>{" "}
-                        {Math.round(meal.totals.protein)} /{" "}
-                        {Math.round(meal.totals.fat)} /{" "}
-                        {Math.round(meal.totals.carbs)} г
-                      </div>
-                    </div>
-                  </div>
 
-                  <div className="mt-1 space-y-2">
-                    {meal.items.map((item) => (
-                      <div
-                        key={item.log_item_id}
-                        className="rounded-xl border border-slate-100 bg-slate-50/80 px-2.5 py-2"
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1">
-                            <div className="text-xs font-medium text-slate-900">
-                              {item.product}
+                      <div className="mt-1 space-y-2">
+                        {meal.items.map((item) => (
+                          <div
+                            key={item.log_item_id}
+                            className="rounded-xl border border-slate-100 bg-slate-50/80 px-2.5 py-2"
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1">
+                                <div className="text-xs font-medium text-slate-900">
+                                  {item.product}
+                                </div>
+                                <div className="mt-0.5 text-[10px] text-slate-500">
+                                  {item.grams} г · ≈ {Math.round(item.kcal)} ккал
+                                </div>
+                              </div>
+                              <div className="flex flex-col items-end gap-1">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  className="h-7 rounded-full px-2 text-[10px]"
+                                  onClick={() => handleOpenGramsPicker(item)}
+                                  disabled={!isEditableDay}
+                                >
+                                  Изменить граммы
+                                </Button>
+                                {item.dict_id && (
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    className="h-7 rounded-full px-2 text-[10px] text-slate-500 hover:text-slate-700 disabled:opacity-50 disabled:hover:text-slate-500"
+                                    onClick={() => openNutritionEditor(item)}
+                                    disabled={!isEditableDay}
+                                  >
+                                    Исправить КБЖУ
+                                  </Button>
+                                )}
+                              </div>
                             </div>
-                            <div className="mt-0.5 text-[10px] text-slate-500">
-                              {item.grams} г · ≈ {Math.round(item.kcal)} ккал
+                            <div className="mt-1 text-[10px] text-slate-600 flex flex-wrap gap-x-3 gap-y-1">
+                              <span>Б {Math.round(item.protein)} г</span>
+                              <span>Ж {Math.round(item.fat)} г</span>
+                              <span>У {Math.round(item.carbs)} г</span>
                             </div>
                           </div>
-                          <div className="flex flex-col items-end gap-1">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              className="h-7 rounded-full px-2 text-[10px]"
-                              onClick={() => handleOpenGramsPicker(item)}
-                              disabled={!isEditableDay}
-                            >
-                              Изменить граммы
-                            </Button>
-                            {item.dict_id && (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                className="h-7 rounded-full px-2 text-[10px] text-slate-500 hover:text-slate-700 disabled:opacity-50 disabled:hover:text-slate-500"
-                                onClick={() => openNutritionEditor(item)}
-                                disabled={!isEditableDay}
-                              >
-                                Исправить КБЖУ
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                        <div className="mt-1 text-[10px] text-slate-600 flex flex-wrap gap-x-3 gap-y-1">
-                          <span>Б {Math.round(item.protein)} г</span>
-                          <span>Ж {Math.round(item.fat)} г</span>
-                          <span>У {Math.round(item.carbs)} г</span>
-                        </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                  </SwipeableItem>
                 </Card>
               ))}
             </div>

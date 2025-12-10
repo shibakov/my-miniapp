@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { BottomNav } from "./new-ui/BottomNav";
-import LogFoodPage from "./pages/LogFoodPage";
+import { AddMealScreen } from "./new-ui/AddMealScreen";
 import SplashScreen from "./components/SplashScreen";
 import ProductsScreen from "./pages/ProductsScreen";
 import HomeScreen from "./pages/HomeScreen";
@@ -88,9 +88,9 @@ function App() {
                 onAddMeal={() => setMealMode("add")}
               />
             ) : (
-              <LogFoodPage
+              <AddMealScreen
                 key={statsRefreshKey}
-                onLogSaved={handleLogSaved}
+                onSave={handleLogSaved}
                 onBack={() => setMealMode("home")}
               />
             ))}

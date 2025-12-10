@@ -1,14 +1,12 @@
 // src/components/SplashScreen.tsx
 
 import { useEffect, useState } from "react";
-import Lottie from "lottie-react";
-import animationData from "../assets/food-lotti.json";
 
 export default function SplashScreen() {
   const [visible, setVisible] = useState(true);
 
   useEffect(() => {
-    const timer = setTimeout(() => setVisible(false), 1800);
+    const timer = setTimeout(() => setVisible(false), 1200);
     return () => clearTimeout(timer);
   }, []);
 
@@ -23,20 +21,14 @@ export default function SplashScreen() {
       style={{ zIndex: 9999 }}
     >
       <div className="flex flex-col items-center gap-3">
-        {/* Анимация с контролируемым размером */}
-        <div className="w-32 h-32 sm:w-36 sm:h-36 flex items-center justify-center">
-          <Lottie
-            animationData={animationData}
-            loop={true}
-            style={{
-              width: "100%",
-              height: "100%",
-            }}
-          />
+        {/* Простой сплэш без lottie-react, чтобы избежать ошибок хуков */}
+        <div className="w-24 h-24 sm:w-28 sm:h-28 flex items-center justify-center rounded-[28px] bg-white/5 border border-white/10 shadow-lg shadow-black/40">
+          <span className="text-4xl" role="img" aria-label="food">
+            🥗
+          </span>
         </div>
 
-        {/* Текст ближе к анимации */}
-        <div className="flex flex-col items-center gap-0.5">
+        <div className="flex flex-col items-center gap-0.5 mt-1">
           <div className="text-white text-xl font-semibold tracking-wide">
             Food Tracker
           </div>

@@ -8,7 +8,8 @@ import {
   getDailyStats,
   getHistoryByDay,
   type DailyStats,
-  type HistoryDay
+  type HistoryDay,
+  type HistoryMeal
 } from "@/lib/api";
 
 interface HomeScreenProps {
@@ -89,6 +90,15 @@ export default function HomeScreen({ refreshKey, onAddMeal }: HomeScreenProps) {
   const carbsCurrent = stats?.carbs_used ?? 0;
   const carbsTarget = stats?.carbs_limit ?? 0;
 
+  // Временные заглушки для действий по свайпу приёмов
+  const handleEditMeal = (_meal: HistoryMeal) => {
+    // TODO: добавить реальное редактирование приёма (например, открыть экран истории/редактирования)
+  };
+
+  const handleDeleteMeal = (_meal: HistoryMeal) => {
+    // TODO: добавить реальное удаление приёма из лога
+  };
+
   return (
     <div className="flex flex-col min-h-screen bg-slate-50 pb-20">
       {/* Header */}
@@ -133,7 +143,12 @@ export default function HomeScreen({ refreshKey, onAddMeal }: HomeScreenProps) {
         <DailyTip />
 
         {/* Meals list for the selected day */}
-        <MealList meals={dayData?.meals ?? []} onAddMeal={onAddMeal} />
+        <MealList
+          meals={dayData?.meals ?? []}
+          onAddMeal={onAddMeal}
+          onEditMeal={handleEditMeal}
+          onDeleteMeal={handleDeleteMeal}
+        />
 
         {/* Loading indicator overlay for initial load */}
         {loading && !dayData && !stats && (
