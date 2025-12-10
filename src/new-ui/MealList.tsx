@@ -2,6 +2,7 @@ import React from "react";
 import { ChevronRight, Plus } from "lucide-react";
 import type { HistoryMeal } from "@/lib/api";
 import { buildProductsLine, formatMealTime, getMealLabel } from "@/lib/meal-format";
+import { format1 } from "@/lib/utils";
 import { SwipeableItem } from "./SwipeableItem";
 
 interface MealListProps {
@@ -49,7 +50,11 @@ export const MealList: React.FC<MealListProps> = ({
                 className="bg-white rounded-[20px] shadow-sm overflow-hidden border border-gray-100"
               >
                 <SwipeableItem onEdit={handleEdit} onDelete={handleDelete}>
-                  <div className="p-4 flex justify-between items-start bg-white w-full active:bg-gray-50 transition-colors">
+                  <button
+                    type="button"
+                    onClick={handleEdit}
+                    className="p-4 flex justify-between items-start bg-white w-full active:bg-gray-50 transition-colors text-left"
+                  >
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
@@ -66,16 +71,16 @@ export const MealList: React.FC<MealListProps> = ({
                       )}
                       <div className="flex items-center flex-wrap gap-2 text-xs text-gray-500">
                         <span className="font-bold text-gray-900">
-                          {Math.round(macros.kcal)} ккал
+                          {format1(macros.kcal)} ккал
                         </span>
                         <span className="w-1 h-1 bg-gray-300 rounded-full" />
-                        <span>Б: {Math.round(macros.protein)}</span>
-                        <span>Ж: {Math.round(macros.fat)}</span>
-                        <span>У: {Math.round(macros.carbs)}</span>
+                        <span>Б: {format1(macros.protein)}</span>
+                        <span>Ж: {format1(macros.fat)}</span>
+                        <span>У: {format1(macros.carbs)}</span>
                       </div>
                     </div>
                     <ChevronRight className="w-5 h-5 text-gray-300 mt-1 shrink-0" />
-                  </div>
+                  </button>
                 </SwipeableItem>
               </div>
             );

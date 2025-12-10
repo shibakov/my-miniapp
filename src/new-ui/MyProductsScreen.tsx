@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, ScanLine, Package, X } from 'lucide-react';
 import { SwipeableItem } from "./SwipeableItem";
+import { format1 } from "@/lib/utils";
 import type { FoodItem } from "./types";
 
 interface MyProductsScreenProps {
@@ -200,7 +201,7 @@ export const MyProductsScreen: React.FC<MyProductsScreenProps> = ({
                     <h3 className="font-semibold text-gray-900 leading-tight">{food.name}</h3>
                     {food.brand && <p className="text-xs text-gray-400 mb-0.5">{food.brand}</p>}
                     <div className="text-xs font-medium text-gray-500">
-                      {food.calories} ккал • Б:{food.protein} Ж:{food.fats} У:{food.carbs}
+                      {format1(food.calories)} ккал • Б:{format1(food.protein)} Ж:{format1(food.fats)} У:{format1(food.carbs)}
                     </div>
                   </div>
                 </div>

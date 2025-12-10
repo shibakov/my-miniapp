@@ -2,6 +2,7 @@ import React, { useState, useMemo, useRef, useCallback } from "react";
 import { Search, Camera, ChevronLeft, X, Plus, ScanLine, Minus } from "lucide-react";
 import { SwipeableItem } from "./SwipeableItem";
 import { useMealComposer } from "@/lib/useMealComposer";
+import { round1, format1 } from "@/lib/utils";
 import {
   searchProducts,
   createProduct,
@@ -331,11 +332,20 @@ export const AddMealScreen: React.FC<AddMealScreenProps> = ({ onBack, onSave }) 
             <div className="flex flex-col gap-3">
               {composer.selected.map((item) => {
                 const kcalPer100 = item.kcal_100 ?? 0;
-                const itemCals = Math.round(kcalPer100 * (item.quantity / 100));
+                const itemCals = round1(kcalPer100 * (item.quantity / 100));
 
-                const protein = item.protein_100 != null ? Math.round(item.protein_100 * (item.quantity / 100)) : 0;
-                const fat = item.fat_100 != null ? Math.round(item.fat_100 * (item.quantity / 100)) : 0;
-                const carbs = item.carbs_100 != null ? Math.round(item.carbs_100 * (item.quantity / 100)) : 0;
+                const protein =
+                  item.protein_100 != null
+                    ? round1(item.protein_100 * (item.quantity / 100))
+                    : 0;
+                const fat =
+                  item.fat_100 != null
+                    ? round1(item.fat_100 * (item.quantity / 100))
+                    : 0;
+                const carbs =
+                  item.carbs_100 != null
+                    ? round1(item.carbs_100 * (item.quantity / 100))
+                    : 0;
 
                 return (
                   <div
@@ -365,10 +375,11 @@ export const AddMealScreen: React.FC<AddMealScreenProps> = ({ onBack, onSave }) 
                           {/* Left: Info */}
                           <div>
                             <div className="text-xl font-bold text-gray-900 mb-0.5">
-                              {itemCals} <span className="text-sm font-medium text-gray-500">ккал</span>
+                              {format1(itemCals)} {" "}
+                              <span className="text-sm font-medium text-gray-500">ккал</span>
                             </div>
                             <div className="text-xs text-gray-400 font-medium tracking-wide">
-                              Б:{protein} Ж:{fat} У:{carbs}
+                              Б:{format1(protein)} Ж:{format1(fat)} У:{format1(carbs)}
                             </div>
                           </div>
 
@@ -431,7 +442,7 @@ export const AddMealScreen: React.FC<AddMealScreenProps> = ({ onBack, onSave }) 
                   <div className="text-xs text-gray-500">
                     {item.kcal_100 != null && (
                       <>
-                        {Math.round(item.kcal_100)} ккал • {" "}
+                        {format1(item.kcal_100)} ккал • {" "}
                         <span className="text-gray-400">100 г</span>
                       </>
                     )}
@@ -471,22 +482,22 @@ export const AddMealScreen: React.FC<AddMealScreenProps> = ({ onBack, onSave }) 
                   Итого за {composer.mealType ? getMealLabel(composer.mealType as MealType) : "..."}
                 </div>
                 <div className="text-2xl font-bold text-gray-900 leading-none">
-                  {Math.round(totals.kcal)} {" "}
+                  {format1(totals.kcal)} {" "}
                   <span className="text-base font-medium text-gray-500">ккал</span>
                 </div>
               </div>
               <div className="flex gap-4 text-xs font-medium">
                 <div className="text-center">
                   <div className="w-10 h-1 rounded-full bg-blue-500 mb-1"></div>
-                  <span className="text-gray-500">{Math.round(totals.protein)}г</span>
+                  <span className="text-gray-500">{format1(totals.protein)}г</span>
                 </div>
                 <div className="text-center">
                   <div className="w-10 h-1 rounded-full bg-purple-500 mb-1"></div>
-                  <span className="text-gray-500">{Math.round(totals.fat)}г</span>
+                  <span className="text-gray-500">{format1(totals.fat)}г</span>
                 </div>
                 <div className="text-center">
                   <div className="w-10 h-1 rounded-full bg-orange-500 mb-1"></div>
-                  <span className="text-gray-500">{Math.round(totals.carbs)}г</span>
+                  <span className="text-gray-500">{format1(totals.carbs)}г</span>
                 </div>
               </div>
             </div>

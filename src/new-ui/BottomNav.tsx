@@ -8,7 +8,7 @@ interface BottomNavProps {
 
 export const BottomNav: React.FC<BottomNavProps> = ({ onNavigate, activeScreen }) => {
   return (
-    <div className="absolute bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t border-gray-200 pb-safe z-30">
+    <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t border-gray-200 pb-safe z-30">
       <div className="flex justify-between items-end px-2 h-[80px] pb-5">
         
         {/* Home */}

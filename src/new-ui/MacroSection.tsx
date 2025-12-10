@@ -1,4 +1,5 @@
 import React from "react";
+import { format1 } from "@/lib/utils";
 
 interface MacroItemProps {
   label: string;
@@ -49,9 +50,9 @@ const MacroItem: React.FC<MacroItemProps> = ({ label, current, target, fillColor
 
       <span className="text-sm font-semibold text-gray-900 mb-0.5">{label}</span>
       <span className="text-[10px] text-gray-500 font-medium mb-1">
-        {Math.round(current)}/{Math.round(safeTarget)} г
+        {format1(current)}/{format1(safeTarget)} г
       </span>
-      <span className="text-[10px] text-gray-400">ост. {Math.round(remaining)}</span>
+      <span className="text-[10px] text-gray-400">ост. {format1(remaining)} г</span>
     </div>
   );
 };

@@ -15,15 +15,20 @@ import {
 interface HomeScreenProps {
   refreshKey: number;
   onAddMeal: () => void;
+  onOpenMeal: (meal: HistoryMeal, dateIso: string) => void;
 }
 
-export default function HomeScreen({ refreshKey, onAddMeal }: HomeScreenProps) {
+export default function HomeScreen({ refreshKey, onAddMeal, onOpenMeal }: HomeScreenProps) {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
-  const dateIso = useMemo(
-    () => selectedDate.toISOString().slice(0, 10),
-    [selectedDate]
-  );
+  // Локальная дата без UTC-сдвигов, чтобы при переключении дней не "прыгали" цифры
+  const dateIso = useMemo(() => {
+    const d = selectedDate;
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  }, [selectedDate]);
 
   const [dayData, setDayData] = useState<HistoryDay | null>(null);
   const [stats, setStats] = useState<DailyStats | null>(null);
@@ -90,9 +95,9 @@ export default function HomeScreen({ refreshKey, onAddMeal }: HomeScreenProps) {
   const carbsCurrent = stats?.carbs_used ?? 0;
   const carbsTarget = stats?.carbs_limit ?? 0;
 
-  // Временные заглушки для действий по свайпу приёмов
-  const handleEditMeal = (_meal: HistoryMeal) => {
-    // TODO: добавить реальное редактирование приёма (например, открыть экран истории/редактирования)
+  // Открытие деталей приёма (передаём наверх выбранный приём и дату дня)
+  const handleEditMeal = (meal: HistoryMeal) => {
+    onOpenMeal(meal, dateIso);
   };
 
   const handleDeleteMeal = (_meal: HistoryMeal) => {

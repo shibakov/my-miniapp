@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { format1 } from "@/lib/utils";
 import {
   AreaChart,
   Area,
@@ -275,7 +276,7 @@ export const DynamicsScreen: React.FC<DynamicsScreenProps> = ({ onBack }) => {
                       boxShadow: "0 4px 12px rgba(0,0,0,0.1)"
                     }}
                     cursor={{ stroke: "#3B82F6", strokeWidth: 1, strokeDasharray: "4 4" }}
-                    formatter={(value: number) => [Math.round(value), "ккал"]}
+                    formatter={(value: number) => [format1(value), "ккал"]}
                     labelFormatter={(label: string) => label}
                   />
                   <Area
@@ -319,7 +320,7 @@ export const DynamicsScreen: React.FC<DynamicsScreenProps> = ({ onBack }) => {
             <div className="bg-white p-4 rounded-2xl shadow-sm">
               <div className="text-gray-500 text-xs font-medium mb-1">Калории</div>
               <div className="text-2xl font-bold text-gray-900">
-                {Math.round(averages.avg.cals)}
+                {format1(averages.avg.cals)}
               </div>
               <div className={`text-xs font-medium mt-1 ${averages.kcalStatus.color}`}>
                 {averages.kcalStatus.label}
@@ -328,7 +329,7 @@ export const DynamicsScreen: React.FC<DynamicsScreenProps> = ({ onBack }) => {
             <div className="bg-white p-4 rounded-2xl shadow-sm">
               <div className="text-gray-500 text-xs font-medium mb-1">Белки</div>
               <div className="text-2xl font-bold text-gray-900">
-                {Math.round(averages.avg.protein)}г
+                {format1(averages.avg.protein)}г
               </div>
               <div className={`text-xs font-medium mt-1 ${averages.proteinStatus.color}`}>
                 {averages.proteinStatus.label}
@@ -337,7 +338,7 @@ export const DynamicsScreen: React.FC<DynamicsScreenProps> = ({ onBack }) => {
             <div className="bg-white p-4 rounded-2xl shadow-sm">
               <div className="text-gray-500 text-xs font-medium mb-1">Жиры</div>
               <div className="text-2xl font-bold text-gray-900">
-                {Math.round(averages.avg.fat)}г
+                {format1(averages.avg.fat)}г
               </div>
               <div className={`text-xs font-medium mt-1 ${averages.fatStatus.color}`}>
                 {averages.fatStatus.label}
@@ -346,7 +347,7 @@ export const DynamicsScreen: React.FC<DynamicsScreenProps> = ({ onBack }) => {
             <div className="bg-white p-4 rounded-2xl shadow-sm">
               <div className="text-gray-500 text-xs font-medium mb-1">Углеводы</div>
               <div className="text-2xl font-bold text-gray-900">
-                {Math.round(averages.avg.carbs)}г
+                {format1(averages.avg.carbs)}г
               </div>
               <div className={`text-xs font-medium mt-1 ${averages.carbsStatus.color}`}>
                 {averages.carbsStatus.label}

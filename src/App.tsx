@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { BottomNav } from "./new-ui/BottomNav";
 import { AddMealScreen } from "./new-ui/AddMealScreen";
+import { MealDetailsScreen } from "./new-ui/MealDetailsScreen";
 import SplashScreen from "./components/SplashScreen";
 import ProductsScreen from "./pages/ProductsScreen";
 import HomeScreen from "./pages/HomeScreen";
 import DynamicsScreen from "./pages/DynamicsScreen";
+import type { HistoryMeal } from "./lib/api";
 
 declare global {
   interface Window {
@@ -18,7 +20,9 @@ function App() {
   const [activeTab, setActiveTab] = useState<"meal" | "history" | "analytics">(
     "meal"
   );
-  const [mealMode, setMealMode] = useState<"home" | "add">("home");
+  const [mealMode, setMealMode] = useState<"home" | "add" | "details">("home");
+  const [selectedMeal, setSelectedMeal] = useState<HistoryMeal | null>(null);
+  const [selectedMealDate, setSelectedMealDate] = useState<string | null>(null);
 
   const handleNavigate = (
     screen: "home" | "products" | "add" | "dynamics" | "settings"
@@ -48,10 +52,10 @@ function App() {
   };
 
   const activeScreen: "home" | "products" | "add" | "dynamics" | "settings" =
-    activeTab === "meal" && mealMode === "home"
-      ? "home"
-      : activeTab === "meal" && mealMode === "add"
-      ? "add"
+    activeTab === "meal"
+      ? mealMode === "add"
+        ? "add"
+        : "home"
       : activeTab === "analytics"
       ? "products"
       : activeTab === "history"
@@ -75,25 +79,51 @@ function App() {
     setMealMode("home");
   };
 
+  const handleOpenMeal = (meal: HistoryMeal, dateIso: string) => {
+    setSelectedMeal(meal);
+    setSelectedMealDate(dateIso);
+    setMealMode("details");
+  };
+
+  const handleMealUpdated = () => {
+    // После изменения граммов в деталях обновляем дневную статистику
+    setStatsRefreshKey((key) => key + 1);
+  };
+
   return (
     <>
       <SplashScreen />
 
       <div className="w-full min-h-screen bg-gray-100 flex flex-col relative">
         <div className="flex-1">
-          {activeTab === "meal" &&
-            (mealMode === "home" ? (
+          {activeTab === "meal" && (
+            mealMode === "home" ? (
               <HomeScreen
                 refreshKey={statsRefreshKey}
                 onAddMeal={() => setMealMode("add")}
+                onOpenMeal={handleOpenMeal}
               />
-            ) : (
+            ) : mealMode === "add" ? (
               <AddMealScreen
                 key={statsRefreshKey}
                 onSave={handleLogSaved}
                 onBack={() => setMealMode("home")}
               />
-            ))}
+            ) : selectedMeal && selectedMealDate ? (
+              <MealDetailsScreen
+                meal={selectedMeal}
+                date={selectedMealDate}
+                onBack={() => setMealMode("home")}
+                onUpdated={handleMealUpdated}
+              />
+            ) : (
+              <HomeScreen
+                refreshKey={statsRefreshKey}
+                onAddMeal={() => setMealMode("add")}
+                onOpenMeal={handleOpenMeal}
+              />
+            )
+          )}
 
           {activeTab === "history" && (
             <DynamicsScreen onBack={() => setActiveTab("meal")} />

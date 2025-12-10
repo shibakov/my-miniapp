@@ -1,5 +1,6 @@
 import React from 'react';
 import { BarChart2 } from 'lucide-react';
+import { format1 } from '@/lib/utils';
 
 interface CalorieCardProps {
   current: number;
@@ -16,8 +17,8 @@ export const CalorieCard: React.FC<CalorieCardProps> = ({ current, target }) => 
         <div>
           <h2 className="text-gray-500 text-sm font-medium mb-1">Калории сегодня</h2>
           <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-bold text-gray-900">{current}</span>
-            <span className="text-gray-400 font-medium">/ {target} ккал</span>
+            <span className="text-3xl font-bold text-gray-900">{format1(current)}</span>
+            <span className="text-gray-400 font-medium">/ {format1(target)} ккал</span>
           </div>
         </div>
         <button className="p-2 bg-gray-50 rounded-full hover:bg-gray-100 transition-colors">
@@ -35,7 +36,7 @@ export const CalorieCard: React.FC<CalorieCardProps> = ({ current, target }) => 
       </div>
 
       <p className="text-sm text-gray-500 font-medium mt-2">
-        Осталось: <span className="text-gray-900 font-bold">{remaining} ккал</span>
+        Осталось: <span className="text-gray-900 font-bold">{format1(remaining)} ккал</span>
       </p>
     </div>
   );
