@@ -1,0 +1,5 @@
+{
+  "name": "NutriTrack iOS",
+  "description": "A clean, iOS-style food tracking dashboard with macro analytics and daily logging.",
+  "requestFramePermissions": []
+}

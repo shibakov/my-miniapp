@@ -18,6 +18,8 @@ import {
   type MealType,
   type ProductCategoryKey
 } from "@/lib/api";
+import { getMealLabel } from "@/lib/meal-format";
+import { useMealComposer } from "@/lib/useMealComposer";
 
 const DRAFT_KEY = "draft_selected_products_v2";
 
@@ -51,21 +53,6 @@ declare global {
     Telegram?: {
       WebApp?: any;
     };
-  }
-}
-
-function getMealLabel(mealType: MealType) {
-  switch (mealType) {
-    case "Breakfast":
-      return "Завтрак";
-    case "Lunch":
-      return "Обед";
-    case "Dinner":
-      return "Ужин";
-    case "Snack":
-      return "Перекус";
-    default:
-      return mealType;
   }
 }
 
