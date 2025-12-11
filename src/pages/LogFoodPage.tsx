@@ -3,9 +3,9 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import GramsPicker from "@/components/GramsPicker";
 import DailyStatsCard from "@/components/DailyStatsCard";
 import { Trash2 } from "lucide-react";
+import { GramsStepper } from "@/new-ui/GramsStepper";
 import { preprocessImage } from "@/lib/image-preprocess";
 import {
   createMeal,
@@ -16,7 +16,7 @@ import {
   type PendingItem,
   type SearchResult,
   type MealType,
-  type ProductCategoryKey
+  type ProductCategoryKey,
 } from "@/lib/api";
 import { getMealLabel } from "@/lib/meal-format";
 import { useMealComposer } from "@/lib/useMealComposer";
@@ -80,7 +80,9 @@ interface LogFoodPageProps {
 }
 
 export default function LogFoodPage({ onLogSaved, onBack }: LogFoodPageProps) {
-  const [mealType, setMealType] = useState<MealType>(() => getDefaultMealType());
+  const [mealType, setMealType] = useState<MealType>(() =>
+    getDefaultMealType()
+  );
   const [statsRefreshKey, setStatsRefreshKey] = useState(0);
   const [query, setQuery] = useState("");
   const [productsTab, setProductsTab] = useState<"search" | "photo">("search");
@@ -103,13 +105,11 @@ export default function LogFoodPage({ onLogSaved, onBack }: LogFoodPageProps) {
   const [selected, setSelected] = useState<SelectedItem[]>([]);
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
-  const [pickerItemId, setPickerItemId] = useState<string | null>(null);
 
   // ---------- Photo analysis state ----------
   const [photoLoading, setPhotoLoading] = useState(false);
   const [photoResult, setPhotoResult] = useState<PhotoAnalysisResult[]>([]);
   const [photoSelected, setPhotoSelected] = useState<SelectedItem[]>([]);
-  const [photoPickerId, setPhotoPickerId] = useState<string | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [photoTotals, setPhotoTotals] = useState<{
     kcal: number;
@@ -150,7 +150,7 @@ export default function LogFoodPage({ onLogSaved, onBack }: LogFoodPageProps) {
     console.log("📁 Выбран файл:", {
       name: file.name,
       size: file.size,
-      type: file.type
+      type: file.type,
     });
 
     // Отменяем предыдущий запрос, если он ещё идёт
@@ -201,7 +201,7 @@ export default function LogFoodPage({ onLogSaved, onBack }: LogFoodPageProps) {
 
       setPhotoDebug({
         originalSize: file.size,
-        processedSize: processedBlob.size
+        processedSize: processedBlob.size,
       });
 
       if (photoPreviewUrl) {
@@ -224,12 +224,12 @@ export default function LogFoodPage({ onLogSaved, onBack }: LogFoodPageProps) {
         const response = await fetch(url, {
           method: "POST",
           body: formData,
-          signal
+          signal,
         });
 
         console.log("📥 Ответ API:", {
           status: response.status,
-          statusText: response.statusText
+          statusText: response.statusText,
         });
 
         if (!response.ok) {
@@ -291,7 +291,7 @@ export default function LogFoodPage({ onLogSaved, onBack }: LogFoodPageProps) {
           carbs_100:
             item.quantity_g && item.carbs
               ? (item.carbs / item.quantity_g) * 100
-              : item.carbs || 0
+              : item.carbs || 0,
         })
       );
 
@@ -353,8 +353,7 @@ export default function LogFoodPage({ onLogSaved, onBack }: LogFoodPageProps) {
 
   const searchTimeoutRef = useRef<number | null>(null);
 
-  const isTelegram =
-    typeof window !== "undefined" && !!window.Telegram?.WebApp;
+  const isTelegram = typeof window !== "undefined" && !!window.Telegram?.WebApp;
 
   // ---------- Загрузка черновика ----------
   useEffect(() => {
@@ -392,48 +391,46 @@ export default function LogFoodPage({ onLogSaved, onBack }: LogFoodPageProps) {
     }
   }, []);
 
-  const groupedResults = useMemo(
-    () => {
-      if (!results.length) return [] as [ProductCategoryKey | "other", SearchResult[]][];
+  const groupedResults = useMemo(() => {
+    if (!results.length)
+      return [] as [ProductCategoryKey | "other", SearchResult[]][];
 
-      const map = new Map<ProductCategoryKey | "other", SearchResult[]>();
+    const map = new Map<ProductCategoryKey | "other", SearchResult[]>();
 
-      for (const item of results) {
-        const key = (item.category ?? "other") as ProductCategoryKey | "other";
-        if (!map.has(key)) {
-          map.set(key, []);
-        }
-        map.get(key)!.push(item);
+    for (const item of results) {
+      const key = (item.category ?? "other") as ProductCategoryKey | "other";
+      if (!map.has(key)) {
+        map.set(key, []);
       }
+      map.get(key)!.push(item);
+    }
 
-      const compareByFreqAndName = (a: SearchResult, b: SearchResult) => {
-        const fa = (a as any).freq_usage ?? 0;
-        const fb = (b as any).freq_usage ?? 0;
-        if (fa !== fb) return fb - fa;
-        return a.product.localeCompare(b.product, "ru");
-      };
+    const compareByFreqAndName = (a: SearchResult, b: SearchResult) => {
+      const fa = (a as any).freq_usage ?? 0;
+      const fb = (b as any).freq_usage ?? 0;
+      if (fa !== fb) return fb - fa;
+      return a.product.localeCompare(b.product, "ru");
+    };
 
-      const order: (ProductCategoryKey | "other")[] = [
-        "protein",
-        "veg_fruit",
-        "cards",
-        "fats",
-        "dairy",
-        "junk_food",
-        "other"
-      ];
+    const order: (ProductCategoryKey | "other")[] = [
+      "protein",
+      "veg_fruit",
+      "cards",
+      "fats",
+      "dairy",
+      "junk_food",
+      "other",
+    ];
 
-      const entries = Array.from(map.entries());
-      for (const [, items] of entries) {
-        items.sort(compareByFreqAndName);
-      }
+    const entries = Array.from(map.entries());
+    for (const [, items] of entries) {
+      items.sort(compareByFreqAndName);
+    }
 
-      entries.sort((a, b) => order.indexOf(a[0]) - order.indexOf(b[0]));
+    entries.sort((a, b) => order.indexOf(a[0]) - order.indexOf(b[0]));
 
-      return entries;
-    },
-    [results]
-  );
+    return entries;
+  }, [results]);
 
   function handleQueryChange(value: string) {
     setQuery(value);
@@ -469,8 +466,8 @@ export default function LogFoodPage({ onLogSaved, onBack }: LogFoodPageProps) {
         kcal_100: item.kcal_100,
         protein_100: item.protein_100,
         fat_100: item.fat_100,
-        carbs_100: item.carbs_100
-      }
+        carbs_100: item.carbs_100,
+      },
     ]);
 
     setResults([]);
@@ -507,7 +504,7 @@ export default function LogFoodPage({ onLogSaved, onBack }: LogFoodPageProps) {
         kcal_100: parseOptionalNumber(createKcal),
         protein_100: parseOptionalNumber(createProtein),
         fat_100: parseOptionalNumber(createFat),
-        carbs_100: parseOptionalNumber(createCarbs)
+        carbs_100: parseOptionalNumber(createCarbs),
       });
 
       const id = `${created.id}-${Date.now()}`;
@@ -521,12 +518,11 @@ export default function LogFoodPage({ onLogSaved, onBack }: LogFoodPageProps) {
         kcal_100: created.kcal_100,
         protein_100: created.protein_100,
         fat_100: created.fat_100,
-        carbs_100: created.carbs_100
+        carbs_100: created.carbs_100,
       };
 
       setSelected((prev) => [...prev, newItem]);
       setShowCreateProduct(false);
-      setPickerItemId(id); // сразу спрашиваем граммы через GramsPicker
       setSaveStatus("idle");
     } catch (e) {
       console.error("Ошибка при создании продукта", e);
@@ -589,7 +585,7 @@ export default function LogFoodPage({ onLogSaved, onBack }: LogFoodPageProps) {
       kcal: Math.round(kcal),
       protein: Math.round(protein),
       fat: Math.round(fat),
-      carbs: Math.round(carbs)
+      carbs: Math.round(carbs),
     };
   }, [selected]);
 
@@ -610,13 +606,13 @@ export default function LogFoodPage({ onLogSaved, onBack }: LogFoodPageProps) {
       protein_100: s.protein_100,
       fat_100: s.fat_100,
       carbs_100: s.carbs_100,
-      source: s.source
+      source: s.source,
     }));
 
     const payload = {
       meal_type: mealType,
       items,
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
     };
 
     try {
@@ -636,8 +632,6 @@ export default function LogFoodPage({ onLogSaved, onBack }: LogFoodPageProps) {
       setSelected([]);
       setQuery("");
       setResults([]);
-      setPickerItemId(null);
-      setPhotoPickerId(null);
       window.scrollTo({ top: 0, behavior: "smooth" });
 
       try {
@@ -697,10 +691,7 @@ export default function LogFoodPage({ onLogSaved, onBack }: LogFoodPageProps) {
     }
   }, [selected]);
 
-  const currentPickerValue =
-    pickerItemId
-      ? selected.find((item) => item.id === pickerItemId)?.quantity ?? 0
-      : 0;
+  // GramsPicker больше не используется — граммы настраиваются через inline GramsStepper
 
   const handleSearchFocus = () => {
     // Небольшая задержка, чтобы учесть появление клавиатуры (особенно в Telegram WebApp)
@@ -708,7 +699,7 @@ export default function LogFoodPage({ onLogSaved, onBack }: LogFoodPageProps) {
       if (searchInputRef.current) {
         searchInputRef.current.scrollIntoView({
           block: "start",
-          behavior: "smooth"
+          behavior: "smooth",
         });
       }
     }, 150);
@@ -738,7 +729,7 @@ export default function LogFoodPage({ onLogSaved, onBack }: LogFoodPageProps) {
                 Лог питания ·{" "}
                 {new Date().toLocaleDateString("ru-RU", {
                   day: "2-digit",
-                  month: "2-digit"
+                  month: "2-digit",
                 })}
               </span>
             </div>
@@ -746,7 +737,7 @@ export default function LogFoodPage({ onLogSaved, onBack }: LogFoodPageProps) {
           <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] text-slate-600">
             {new Date().toLocaleTimeString("ru-RU", {
               hour: "2-digit",
-              minute: "2-digit"
+              minute: "2-digit",
             })}
           </span>
         </div>
@@ -771,7 +762,7 @@ export default function LogFoodPage({ onLogSaved, onBack }: LogFoodPageProps) {
                       "flex-1 rounded-full px-3 py-1.5 text-xs font-medium transition-all",
                       active
                         ? "bg-blue-600 text-white shadow-sm"
-                        : "text-slate-600"
+                        : "text-slate-600",
                     ].join(" ")}
                   >
                     {getMealLabel(type)}
@@ -797,7 +788,7 @@ export default function LogFoodPage({ onLogSaved, onBack }: LogFoodPageProps) {
                     "flex-1 rounded-full px-3 py-1.5 text-xs font-medium transition-all",
                     active
                       ? "bg-slate-900 text-white shadow-sm"
-                      : "text-slate-600"
+                      : "text-slate-600",
                   ].join(" ")}
                 >
                   {label}
@@ -846,7 +837,8 @@ export default function LogFoodPage({ onLogSaved, onBack }: LogFoodPageProps) {
                       <div className="py-1 space-y-2">
                         {groupedResults.map(([categoryKey, items]) => {
                           const label =
-                            CATEGORY_LABELS[categoryKey] ?? CATEGORY_LABELS.other;
+                            CATEGORY_LABELS[categoryKey] ??
+                            CATEGORY_LABELS.other;
                           const bgClass =
                             CATEGORY_BG_CLASSES[categoryKey] ??
                             CATEGORY_BG_CLASSES.other;
@@ -870,10 +862,13 @@ export default function LogFoodPage({ onLogSaved, onBack }: LogFoodPageProps) {
                                     </div>
                                     <div className="flex justify-between items-center">
                                       <div className="text-[11px] text-slate-600">
-                                        {item.brand && <span>{item.brand} · </span>}
+                                        {item.brand && (
+                                          <span>{item.brand} · </span>
+                                        )}
                                         {item.kcal_100 != null && (
                                           <span>
-                                            {Math.round(item.kcal_100)} ккал / 100 г
+                                            {Math.round(item.kcal_100)} ккал /
+                                            100 г
                                           </span>
                                         )}
                                       </div>
@@ -1019,7 +1014,9 @@ export default function LogFoodPage({ onLogSaved, onBack }: LogFoodPageProps) {
                                   </span>
                                   <span className="text-[11px] text-slate-500">
                                     {item.confidence != null &&
-                                      `${Math.round(item.confidence * 100)}% уверенности`}
+                                      `${Math.round(
+                                        item.confidence * 100
+                                      )}% уверенности`}
                                   </span>
                                 </div>
                                 <div className="text-[11px] text-slate-600">
@@ -1041,20 +1038,21 @@ export default function LogFoodPage({ onLogSaved, onBack }: LogFoodPageProps) {
                                   {item.carbs != null &&
                                     `У: ${Math.round(item.carbs)}г`}
                                 </div>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  className="h-9 rounded-full border-slate-300 bg-slate-50 px-3 text-xs font-medium"
-                                  onClick={() =>
-                                    setPhotoPickerId(
-                                      photoSelected[index]?.id ?? null
-                                    )
-                                  }
-                                >
-                                  {photoSelected[index]?.quantity > 0
-                                    ? `${photoSelected[index]?.quantity} г`
-                                    : "Выбрать граммы"}
-                                </Button>
+                                <GramsStepper
+                                  value={photoSelected[index]?.quantity ?? 0}
+                                  onChange={(grams) => {
+                                    const id = photoSelected[index]?.id;
+                                    if (!id) return;
+                                    setPhotoSelected((prev) =>
+                                      prev.map((it) =>
+                                        it.id === id
+                                          ? { ...it, quantity: grams }
+                                          : it
+                                      )
+                                    );
+                                    setSaveStatus("idle");
+                                  }}
+                                />
                               </div>
                             ))}
                           </div>
@@ -1067,12 +1065,11 @@ export default function LogFoodPage({ onLogSaved, onBack }: LogFoodPageProps) {
                             if (photoSelected.length > 0) {
                               setSelected((prev) => [
                                 ...prev,
-                                ...photoSelected
+                                ...photoSelected,
                               ]);
                               setPhotoSelected([]);
                               setPhotoResult([]);
                               setPhotoTotals(null);
-                              setPhotoPickerId(null);
                               setSaveStatus("idle");
                             }
                           }}
@@ -1153,7 +1150,7 @@ export default function LogFoodPage({ onLogSaved, onBack }: LogFoodPageProps) {
                     "border px-3 py-2.5 rounded-2xl transition-colors",
                     hasQuantity
                       ? "border-slate-200 bg-white"
-                      : "border-amber-200 bg-amber-50/60"
+                      : "border-amber-200 bg-amber-50/60",
                   ].join(" ")}
                 >
                   <div className="flex items-start justify-between gap-2">
@@ -1187,17 +1184,17 @@ export default function LogFoodPage({ onLogSaved, onBack }: LogFoodPageProps) {
                   </div>
 
                   <div className="mt-2">
-                    {/* Кнопка открытия колеса граммов */}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="h-9 rounded-full border-slate-300 bg-slate-50 px-3 text-xs font-medium"
-                      onClick={() => setPickerItemId(item.id)}
-                    >
-                      {item.quantity > 0
-                        ? `${item.quantity} г`
-                        : "Выбрать граммы"}
-                    </Button>
+                    <GramsStepper
+                      value={item.quantity}
+                      onChange={(grams) => {
+                        setSelected((prev) =>
+                          prev.map((it) =>
+                            it.id === item.id ? { ...it, quantity: grams } : it
+                          )
+                        );
+                        setSaveStatus("idle");
+                      }}
+                    />
                   </div>
 
                   {(kcal != null ||
@@ -1272,41 +1269,6 @@ export default function LogFoodPage({ onLogSaved, onBack }: LogFoodPageProps) {
         </div>
       )}
 
-      {/* Колесо выбора граммов */}
-      {pickerItemId && (
-        <GramsPicker
-          value={currentPickerValue ?? 0}
-          onChange={(val) => {
-            setSelected((prev) =>
-              prev.map((item) =>
-                item.id === pickerItemId ? { ...item, quantity: val } : item
-              )
-            );
-            setSaveStatus("idle");
-          }}
-          onClose={() => setPickerItemId(null)}
-        />
-      )}
-
-      {/* GramsPicker for photo products */}
-      {photoPickerId && (
-        <GramsPicker
-          value={
-            photoSelected.find((item) => item.id === photoPickerId)
-              ?.quantity ?? 0
-          }
-          onChange={(val) => {
-            setPhotoSelected((prev) =>
-              prev.map((item) =>
-                item.id === photoPickerId ? { ...item, quantity: val } : item
-              )
-            );
-            setSaveStatus("idle");
-          }}
-          onClose={() => setPhotoPickerId(null)}
-        />
-      )}
-
       {/* Модалка создания нового продукта */}
       {showCreateProduct && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40">
@@ -1349,15 +1311,11 @@ export default function LogFoodPage({ onLogSaved, onBack }: LogFoodPageProps) {
                   className="w-full h-9 rounded-xl border border-slate-300 bg-white px-3 text-xs text-slate-800"
                 >
                   <option value="protein">{CATEGORY_LABELS.protein}</option>
-                  <option value="veg_fruit">
-                    {CATEGORY_LABELS.veg_fruit}
-                  </option>
+                  <option value="veg_fruit">{CATEGORY_LABELS.veg_fruit}</option>
                   <option value="cards">{CATEGORY_LABELS.cards}</option>
                   <option value="fats">{CATEGORY_LABELS.fats}</option>
                   <option value="dairy">{CATEGORY_LABELS.dairy}</option>
-                  <option value="junk_food">
-                    {CATEGORY_LABELS.junk_food}
-                  </option>
+                  <option value="junk_food">{CATEGORY_LABELS.junk_food}</option>
                 </select>
               </div>
 
@@ -1431,9 +1389,7 @@ export default function LogFoodPage({ onLogSaved, onBack }: LogFoodPageProps) {
                 onClick={handleCreateProductSave}
                 disabled={createLoading || !createName.trim()}
               >
-                {createLoading
-                  ? "Создаём..."
-                  : "Сохранить и выбрать граммы"}
+                {createLoading ? "Создаём..." : "Сохранить и выбрать граммы"}
               </Button>
             </div>
           </div>

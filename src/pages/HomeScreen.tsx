@@ -9,7 +9,7 @@ import {
   getHistoryByDay,
   type DailyStats,
   type HistoryDay,
-  type HistoryMeal
+  type HistoryMeal,
 } from "@/lib/api";
 
 interface HomeScreenProps {
@@ -18,8 +18,33 @@ interface HomeScreenProps {
   onOpenMeal: (meal: HistoryMeal, dateIso: string) => void;
 }
 
-export default function HomeScreen({ refreshKey, onAddMeal, onOpenMeal }: HomeScreenProps) {
+export default function HomeScreen({
+  refreshKey,
+  onAddMeal,
+  onOpenMeal,
+}: HomeScreenProps) {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+
+  // Ограничиваем переход не более чем на 14 дней назад
+  const today = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, []);
+
+  const minDate = useMemo(() => {
+    const d = new Date(today);
+    d.setDate(today.getDate() - 14);
+    return d;
+  }, [today]);
+
+  const clampDate = (candidate: Date) => {
+    const c = new Date(candidate);
+    c.setHours(0, 0, 0, 0);
+    if (c < minDate) return minDate;
+    if (c > today) return today;
+    return c;
+  };
 
   // Локальная дата без UTC-сдвигов, чтобы при переключении дней не "прыгали" цифры
   const dateIso = useMemo(() => {
@@ -44,7 +69,7 @@ export default function HomeScreen({ refreshKey, onAddMeal, onOpenMeal }: HomeSc
       try {
         const [history, dailyStats] = await Promise.all([
           getHistoryByDay(dateIso),
-          getDailyStats(dateIso)
+          getDailyStats(dateIso),
         ]);
 
         if (!cancelled) {
@@ -53,7 +78,8 @@ export default function HomeScreen({ refreshKey, onAddMeal, onOpenMeal }: HomeSc
         }
       } catch (e) {
         console.error("Ошибка загрузки данных за день", e);
-        if (!cancelled) setError("Не удалось загрузить данные за выбранный день");
+        if (!cancelled)
+          setError("Не удалось загрузить данные за выбранный день");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -69,7 +95,7 @@ export default function HomeScreen({ refreshKey, onAddMeal, onOpenMeal }: HomeSc
   const weekdayLabel = useMemo(
     () =>
       new Intl.DateTimeFormat("ru-RU", {
-        weekday: "long"
+        weekday: "long",
       })
         .format(selectedDate)
         .replace(/^./, (ch) => ch.toUpperCase()),
@@ -80,7 +106,7 @@ export default function HomeScreen({ refreshKey, onAddMeal, onOpenMeal }: HomeSc
     () =>
       new Intl.DateTimeFormat("ru-RU", {
         day: "2-digit",
-        month: "long"
+        month: "long",
       }).format(selectedDate),
     [selectedDate]
   );
@@ -109,14 +135,54 @@ export default function HomeScreen({ refreshKey, onAddMeal, onOpenMeal }: HomeSc
       {/* Header */}
       <header className="px-5 pt-6 pb-3 bg-white shadow-sm">
         <div className="flex flex-col">
-          <h1 className="text-2xl font-bold text-gray-900 mb-1">Easy Diet 🥗</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-1">
+            Easy Diet 🥗
+          </h1>
           <p className="text-gray-500 text-xs font-medium">
             {weekdayLabel}, {dateLabel}
           </p>
         </div>
       </header>
 
-      <main className="flex-1 overflow-y-auto no-scrollbar pb-6">
+      <main
+        className="flex-1 overflow-y-auto no-scrollbar pb-6"
+        onTouchStart={(e) => {
+          const touch = e.touches[0];
+          (e.currentTarget as any).dataset.swipeStartX = String(touch.clientX);
+          (e.currentTarget as any).dataset.swipeStartY = String(touch.clientY);
+        }}
+        onTouchEnd={(e) => {
+          const startX = parseFloat(
+            (e.currentTarget as any).dataset.swipeStartX || "0"
+          );
+          const startY = parseFloat(
+            (e.currentTarget as any).dataset.swipeStartY || "0"
+          );
+          const touch = e.changedTouches[0];
+          const deltaX = touch.clientX - startX;
+          const deltaY = touch.clientY - startY;
+
+          const absX = Math.abs(deltaX);
+          const absY = Math.abs(deltaY);
+
+          // Игнорируем вертикальные свайпы и слишком короткие движения
+          if (absX < 40 || absX < absY) return;
+
+          // Свайп влево -> следующий день, но не дальше сегодня
+          if (deltaX < 0) {
+            const next = new Date(selectedDate);
+            next.setDate(selectedDate.getDate() + 1);
+            setSelectedDate(clampDate(next));
+          }
+
+          // Свайп вправо -> предыдущий день, но не старше minDate
+          if (deltaX > 0) {
+            const prev = new Date(selectedDate);
+            prev.setDate(selectedDate.getDate() - 1);
+            setSelectedDate(clampDate(prev));
+          }
+        }}
+      >
         {/* Date picker strip */}
         <DateStrip selectedDate={selectedDate} onSelectDate={setSelectedDate} />
 

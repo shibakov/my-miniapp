@@ -1,7 +1,15 @@
 import React, { useState, useMemo, useRef, useCallback } from "react";
-import { Search, Camera, ChevronLeft, X, Plus, ScanLine, Minus } from "lucide-react";
+import {
+  Search,
+  Camera,
+  ChevronLeft,
+  X,
+  Plus,
+  ScanLine,
+} from "lucide-react";
 import { SwipeableItem } from "./SwipeableItem";
 import { BottomSheet } from "./BottomSheet";
+import { GramsStepper } from "./GramsStepper";
 import { useMealComposer } from "@/lib/useMealComposer";
 import { round1, format1 } from "@/lib/utils";
 import {
@@ -12,7 +20,7 @@ import {
   CATEGORY_BG_CLASSES,
   type SearchResult,
   type MealType,
-  type CreateMealPayload
+  type CreateMealPayload,
 } from "@/lib/api";
 import { getMealLabel } from "@/lib/meal-format";
 
@@ -26,10 +34,13 @@ const MEAL_TYPE_TAGS: { label: string; value: MealType }[] = [
   { label: "Завтрак", value: "Breakfast" },
   { label: "Обед", value: "Lunch" },
   { label: "Ужин", value: "Dinner" },
-  { label: "Перекус", value: "Snack" }
+  { label: "Перекус", value: "Snack" },
 ];
 
-export const AddMealScreen: React.FC<AddMealScreenProps> = ({ onBack, onSave }) => {
+export const AddMealScreen: React.FC<AddMealScreenProps> = ({
+  onBack,
+  onSave,
+}) => {
   const composer = useMealComposer();
 
   // --- Поиск по словарю продуктов ---
@@ -159,7 +170,7 @@ export const AddMealScreen: React.FC<AddMealScreenProps> = ({ onBack, onSave }) 
         kcal_100: kcal,
         protein_100: protein,
         fat_100: fat,
-        carbs_100: carbs
+        carbs_100: carbs,
       });
 
       // сразу добавляем в приём
@@ -223,7 +234,7 @@ export const AddMealScreen: React.FC<AddMealScreenProps> = ({ onBack, onSave }) 
     const payload: CreateMealPayload = {
       meal_type: composer.mealType,
       items,
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
     };
 
     try {
@@ -277,54 +288,98 @@ export const AddMealScreen: React.FC<AddMealScreenProps> = ({ onBack, onSave }) 
 
       {/* Main Content */}
       <div className="flex-1 overflow-y-auto no-scrollbar pb-[180px]">
-      {/* Search & Camera & Meal Type Section */}
-      <div className="bg-white p-4 pb-6 shadow-sm rounded-b-[24px] mb-6">
-        {/* Meal Type First */}
-        <div className="mb-4">
-          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 ml-1">
-            Тип приёма пищи <span className="text-red-400">*</span>
-          </h3>
-          <div className="flex flex-wrap gap-2">
-            {MEAL_TYPE_TAGS.map((tag) => (
-              <button
-                key={tag.value}
-                onClick={() => composer.setMealType(tag.value)}
-                className={`px-3 py-1.5 rounded-xl text-[14px] font-medium whitespace-nowrap transition-all duration-200 border ${
-                  composer.mealType === tag.value
-                    ? "bg-gray-900 text-white border-gray-900 shadow-lg shadow-gray-200 scale-[1.02]"
-                    : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"
-                }`}
-              >
-                {tag.label}
-              </button>
-            ))}
+        {/* Search & Camera & Meal Type Section */}
+        <div className="bg-white p-4 pb-6 shadow-sm rounded-b-[24px] mb-6">
+          {/* Meal Type First */}
+          <div className="mb-4">
+            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 ml-1">
+              Тип приёма пищи <span className="text-red-400">*</span>
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              {MEAL_TYPE_TAGS.map((tag) => (
+                <button
+                  key={tag.value}
+                  onClick={() => composer.setMealType(tag.value)}
+                  className={`px-3 py-1.5 rounded-xl text-[14px] font-medium whitespace-nowrap transition-all duration-200 border ${
+                    composer.mealType === tag.value
+                      ? "bg-gray-900 text-white border-gray-900 shadow-lg shadow-gray-200 scale-[1.02]"
+                      : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"
+                  }`}
+                >
+                  {tag.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Search & Camera Below */}
+          <div className="flex gap-3">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Поиск продукта..."
+                value={query}
+                onChange={(e) => handleQueryChange(e.target.value)}
+                className="w-full bg-gray-100 h-10 rounded-xl pl-10 pr-10 text-[17px] placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all"
+              />
+              {loadingSearch && (
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-gray-300 border-t-ios-blue rounded-full animate-spin" />
+              )}
+            </div>
+            <button
+              type="button"
+              disabled
+              className="w-10 h-10 bg-black/20 text-white/40 rounded-xl flex items-center justify-center shadow-md cursor-not-allowed"
+            >
+              <Camera className="w-5 h-5" />
+            </button>
           </div>
         </div>
 
-        {/* Search & Camera Below */}
-        <div className="flex gap-3">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Поиск продукта..."
-              value={query}
-              onChange={(e) => handleQueryChange(e.target.value)}
-              className="w-full bg-gray-100 h-10 rounded-xl pl-10 pr-10 text-[17px] placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all"
-            />
-            {loadingSearch && (
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-gray-300 border-t-ios-blue rounded-full animate-spin" />
-            )}
+        {/* Search Results & Add Custom (под строкой поиска) */}
+        {(query || searchResults.length > 0) && (
+          <div className="px-4 mb-4">
+            <h3 className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-2 ml-1">
+              {query ? "Результаты поиска" : "Недавнее"}
+            </h3>
+            <div className="bg-white rounded-[20px] shadow-sm overflow-hidden divide-y divide-gray-100 max-h-[50vh] overflow-y-auto">
+              {searchResults.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => handleSelectProduct(item)}
+                  className="w-full p-4 flex items-center justify-between hover:bg-gray-50 active:bg-gray-100 transition-colors text-left group"
+                >
+                  <div>
+                    <h4 className="font-medium text-gray-900 text-[15px] mb-0.5">
+                      {item.product}
+                    </h4>
+                    <div className="text-xs text-gray-500">
+                      {item.kcal_100 != null && (
+                        <>
+                          {format1(item.kcal_100)} ккал •{" "}
+                          <span className="text-gray-400">100 г</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  <div className="w-8 h-8 rounded-full bg-blue-50 text-ios-blue flex items-center justify-center group-active:bg-ios-blue group-active:text-white transition-colors">
+                    <Plus className="w-5 h-5" />
+                  </div>
+                </button>
+              ))}
+
+              {/* "Создать свой продукт" в конце списка */}
+              <button
+                onClick={handleOpenCreateProduct}
+                className="w-full p-4 flex items-center justify-center gap-2 text-ios-blue hover:bg-gray-50 active:bg-blue-50 transition-colors border-t border-gray-100"
+              >
+                <Plus className="w-5 h-5" strokeWidth={2.5} />
+                <span className="font-semibold text-[15px]">Создать свой продукт</span>
+              </button>
+            </div>
           </div>
-          <button
-            type="button"
-            disabled
-            className="w-10 h-10 bg-black/20 text-white/40 rounded-xl flex items-center justify-center shadow-md cursor-not-allowed"
-          >
-            <Camera className="w-5 h-5" />
-          </button>
-        </div>
-      </div>
+        )}
 
         {/* Selected Items List */}
         {selectedMealsCount > 0 && (
@@ -378,44 +433,24 @@ export const AddMealScreen: React.FC<AddMealScreenProps> = ({ onBack, onSave }) 
                           {/* Left: Info */}
                           <div>
                             <div className="text-xl font-bold text-gray-900 mb-0.5">
-                              {format1(itemCals)} {" "}
-                              <span className="text-sm font-medium text-gray-500">ккал</span>
+                              {format1(itemCals)}{" "}
+                              <span className="text-sm font-medium text-gray-500">
+                                ккал
+                              </span>
                             </div>
                             <div className="text-xs text-gray-400 font-medium tracking-wide">
-                              Б:{format1(protein)} Ж:{format1(fat)} У:{format1(carbs)}
+                              Б:{format1(protein)} Ж:{format1(fat)} У:
+                              {format1(carbs)}
                             </div>
                           </div>
 
                           {/* Right: Stepper Control */}
-                          <div className="flex items-center bg-gray-50 rounded-xl p-1 shadow-inner ring-1 ring-gray-100">
-                            <button
-                              onClick={() => adjustWeight(item.id, -10)}
-                              className="w-9 h-9 flex items-center justify-center text-gray-400 hover:text-gray-900 active:scale-90 transition-transform bg-white rounded-lg shadow-sm border border-gray-100"
-                            >
-                              <Minus className="w-4 h-4" strokeWidth={3} />
-                            </button>
-
-                            <div className="flex items-baseline justify-center w-[72px] px-1">
-                              <input
-                                type="number"
-                                inputMode="decimal"
-                                value={item.quantity}
-                                onChange={(e) => handleWeightChange(item.id, e.target.value)}
-                                ref={(el) => {
-                                  weightInputRefs.current[item.id] = el;
-                                }}
-                                className="w-full text-center bg-transparent font-bold text-gray-900 text-lg focus:outline-none p-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                              />
-                              <span className="text-xs font-medium text-gray-400 -ml-1">г</span>
-                            </div>
-
-                            <button
-                              onClick={() => adjustWeight(item.id, 10)}
-                              className="w-9 h-9 flex items-center justify-center text-gray-400 hover:text-gray-900 active:scale-90 transition-transform bg-white rounded-lg shadow-sm border border-gray-100"
-                            >
-                              <Plus className="w-4 h-4" strokeWidth={3} />
-                            </button>
-                          </div>
+                          <GramsStepper
+                            value={item.quantity}
+                            onChange={(grams) =>
+                              handleWeightChange(item.id, String(grams))
+                            }
+                          />
                         </div>
                       </div>
                     </SwipeableItem>
@@ -425,48 +460,6 @@ export const AddMealScreen: React.FC<AddMealScreenProps> = ({ onBack, onSave }) 
             </div>
           </div>
         )}
-
-        {/* Search Results & Add Custom */}
-        <div className="px-4">
-          <h3 className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-2 ml-1">
-            {query ? "Результаты поиска" : "Недавнее"}
-          </h3>
-          <div className="bg-white rounded-[20px] shadow-sm overflow-hidden divide-y divide-gray-100">
-            {searchResults.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => handleSelectProduct(item)}
-                className="w-full p-4 flex items-center justify-between hover:bg-gray-50 active:bg-gray-100 transition-colors text-left group"
-              >
-                <div>
-                  <h4 className="font-medium text-gray-900 text-[15px] mb-0.5">
-                    {item.product}
-                  </h4>
-                  <div className="text-xs text-gray-500">
-                    {item.kcal_100 != null && (
-                      <>
-                        {format1(item.kcal_100)} ккал • {" "}
-                        <span className="text-gray-400">100 г</span>
-                      </>
-                    )}
-                  </div>
-                </div>
-                <div className="w-8 h-8 rounded-full bg-blue-50 text-ios-blue flex items-center justify-center group-active:bg-ios-blue group-active:text-white transition-colors">
-                  <Plus className="w-5 h-5" />
-                </div>
-              </button>
-            ))}
-
-            {/* Sticky "Add Custom Product" button at the end of the list */}
-            <button
-              onClick={handleOpenCreateProduct}
-              className="w-full p-4 flex items-center justify-center gap-2 text-ios-blue hover:bg-gray-50 active:bg-blue-50 transition-colors border-t border-gray-100"
-            >
-              <Plus className="w-5 h-5" strokeWidth={2.5} />
-              <span className="font-semibold text-[15px]">Создать свой продукт</span>
-            </button>
-          </div>
-        </div>
 
         {saveError && (
           <div className="px-4 mt-4 text-xs text-red-600 bg-red-50 border border-red-100 rounded-2xl px-3 py-2.5">
@@ -482,17 +475,24 @@ export const AddMealScreen: React.FC<AddMealScreenProps> = ({ onBack, onSave }) 
             <div className="flex justify-between items-end mb-4 px-2">
               <div>
                 <div className="text-xs text-gray-400 font-medium mb-1">
-                  Итого за {composer.mealType ? getMealLabel(composer.mealType as MealType) : "..."}
+                  Итого за{" "}
+                  {composer.mealType
+                    ? getMealLabel(composer.mealType as MealType)
+                    : "..."}
                 </div>
                 <div className="text-2xl font-bold text-gray-900 leading-none">
-                  {format1(totals.kcal)} {" "}
-                  <span className="text-base font-medium text-gray-500">ккал</span>
+                  {format1(totals.kcal)}{" "}
+                  <span className="text-base font-medium text-gray-500">
+                    ккал
+                  </span>
                 </div>
               </div>
               <div className="flex gap-4 text-xs font-medium">
                 <div className="text-center">
                   <div className="w-10 h-1 rounded-full bg-blue-500 mb-1"></div>
-                  <span className="text-gray-500">{format1(totals.protein)}г</span>
+                  <span className="text-gray-500">
+                    {format1(totals.protein)}г
+                  </span>
                 </div>
                 <div className="text-center">
                   <div className="w-10 h-1 rounded-full bg-purple-500 mb-1"></div>
@@ -500,7 +500,9 @@ export const AddMealScreen: React.FC<AddMealScreenProps> = ({ onBack, onSave }) 
                 </div>
                 <div className="text-center">
                   <div className="w-10 h-1 rounded-full bg-orange-500 mb-1"></div>
-                  <span className="text-gray-500">{format1(totals.carbs)}г</span>
+                  <span className="text-gray-500">
+                    {format1(totals.carbs)}г
+                  </span>
                 </div>
               </div>
             </div>
@@ -576,7 +578,9 @@ export const AddMealScreen: React.FC<AddMealScreenProps> = ({ onBack, onSave }) 
                   value={createKcal}
                   onChange={(e) => setCreateKcal(e.target.value)}
                 />
-                <span className="text-[17px] text-gray-400 w-8 text-right">ккал</span>
+                <span className="text-[17px] text-gray-400 w-8 text-right">
+                  ккал
+                </span>
               </div>
             </div>
             <div className="flex items-center justify-between h-12 px-4">
@@ -590,7 +594,9 @@ export const AddMealScreen: React.FC<AddMealScreenProps> = ({ onBack, onSave }) 
                   value={createProtein}
                   onChange={(e) => setCreateProtein(e.target.value)}
                 />
-                <span className="text-[17px] text-gray-400 w-8 text-right">г</span>
+                <span className="text-[17px] text-gray-400 w-8 text-right">
+                  г
+                </span>
               </div>
             </div>
             <div className="flex items-center justify-between h-12 px-4">
@@ -604,7 +610,9 @@ export const AddMealScreen: React.FC<AddMealScreenProps> = ({ onBack, onSave }) 
                   value={createFat}
                   onChange={(e) => setCreateFat(e.target.value)}
                 />
-                <span className="text-[17px] text-gray-400 w-8 text-right">г</span>
+                <span className="text-[17px] text-gray-400 w-8 text-right">
+                  г
+                </span>
               </div>
             </div>
             <div className="flex items-center justify-between h-12 px-4">
@@ -618,7 +626,9 @@ export const AddMealScreen: React.FC<AddMealScreenProps> = ({ onBack, onSave }) 
                   value={createCarbs}
                   onChange={(e) => setCreateCarbs(e.target.value)}
                 />
-                <span className="text-[17px] text-gray-400 w-8 text-right">г</span>
+                <span className="text-[17px] text-gray-400 w-8 text-right">
+                  г
+                </span>
               </div>
             </div>
           </div>

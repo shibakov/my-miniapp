@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { ChevronLeft } from "lucide-react";
-import GramsPicker from "@/components/GramsPicker";
+import { GramsStepper } from "@/new-ui/GramsStepper";
 import { getMealLabel, formatMealTime } from "@/lib/meal-format";
 import { format1 } from "@/lib/utils";
 import {
@@ -42,11 +42,7 @@ export const MealDetailsScreen: React.FC<MealDetailsScreenProps> = ({
   const [dayData, setDayData] = useState<HistoryDay | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const [gramsPickerItem, setGramsPickerItem] = useState<{
-    logItemId: string;
-    currentGrams: number;
-  } | null>(null);
+  const [updatingGramsId, setUpdatingGramsId] = useState<string | null>(null);
 
   const editable = isEditableDate(date);
 
@@ -80,16 +76,14 @@ export const MealDetailsScreen: React.FC<MealDetailsScreenProps> = ({
     return found ?? meal;
   }, [dayData, meal]);
 
-  const handleOpenGramsPicker = (item: HistoryProductItem) => {
+  const handleInlineGramsChange = async (
+    item: HistoryProductItem,
+    grams: number
+  ) => {
     if (!editable) return;
-    setGramsPickerItem({ logItemId: item.log_item_id, currentGrams: item.grams });
-  };
 
-  const handleGramsChange = async (grams: number) => {
-    if (!gramsPickerItem) return;
-
-    const { logItemId } = gramsPickerItem;
-    setGramsPickerItem(null);
+    const logItemId = item.log_item_id;
+    setUpdatingGramsId(logItemId);
 
     try {
       await updateLogItem({ log_item_id: logItemId, grams });
@@ -102,6 +96,8 @@ export const MealDetailsScreen: React.FC<MealDetailsScreenProps> = ({
     } catch (e) {
       console.error("Ошибка обновления граммов", e);
       // TODO: можно показать тост/ошибку
+    } finally {
+      setUpdatingGramsId(null);
     }
   };
 
@@ -213,13 +209,13 @@ export const MealDetailsScreen: React.FC<MealDetailsScreenProps> = ({
               </div>
 
               {editable && (
-                <button
-                  type="button"
-                  onClick={() => handleOpenGramsPicker(item)}
-                  className="shrink-0 h-8 px-3 text-[11px] font-semibold rounded-full border border-gray-200 text-gray-700 hover:bg-gray-50 active:scale-95 transition-transform"
-                >
-                  Изменить граммы
-                </button>
+                <div className="shrink-0">
+                  <GramsStepper
+                    value={item.grams}
+                    disabled={updatingGramsId === item.log_item_id}
+                    onChange={(grams) => handleInlineGramsChange(item, grams)}
+                  />
+                </div>
               )}
             </div>
           ))}
@@ -231,15 +227,6 @@ export const MealDetailsScreen: React.FC<MealDetailsScreenProps> = ({
           )}
         </section>
       </main>
-
-      {/* Grams picker */}
-      {gramsPickerItem && (
-        <GramsPicker
-          value={gramsPickerItem.currentGrams}
-          onChange={handleGramsChange}
-          onClose={() => setGramsPickerItem(null)}
-        />
-      )}
     </div>
   );
 };

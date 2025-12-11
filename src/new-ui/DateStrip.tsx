@@ -3,20 +3,33 @@ import type { DayData } from "./types";
 
 const DAYS_OF_WEEK = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
 
+function startOfDay(date: Date) {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function isSameDay(a: Date, b: Date) {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
 interface DateStripProps {
   selectedDate: Date;
   onSelectDate: (date: Date) => void;
 }
 
 export const DateStrip: React.FC<DateStripProps> = ({ selectedDate, onSelectDate }) => {
-  // Generate last 5 days + today + next 1 day (to show disabled state example)
+  // Показываем последние 14 дней + немного будущих для наглядности
   const days: DayData[] = useMemo(() => {
     const arr: DayData[] = [];
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = startOfDay(new Date());
 
-    // Показываем около 6 дней до и 6 после текущей даты
-    for (let i = -6; i <= 6; i++) {
+    // 14 дней назад до сегодня + 2 дня вперёд (как disabled)
+    for (let i = -14; i <= 2; i++) {
       const d = new Date(today);
       d.setDate(today.getDate() + i);
       arr.push({
@@ -29,15 +42,12 @@ export const DateStrip: React.FC<DateStripProps> = ({ selectedDate, onSelectDate
   }, []);
 
   const isSelected = (d: Date) => {
-    return (
-      d.getDate() === selectedDate.getDate() &&
-      d.getMonth() === selectedDate.getMonth()
-    );
+    return isSameDay(d, selectedDate);
   };
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
-  // Автоцентровка текущей даты при первом рендере
+  // Автоцентровка выбранной даты (или сегодняшней, если что-то пошло не так)
   useEffect(() => {
     const container = scrollRef.current;
     if (!container) return;
@@ -45,14 +55,20 @@ export const DateStrip: React.FC<DateStripProps> = ({ selectedDate, onSelectDate
     const items = container.querySelectorAll<HTMLButtonElement>('button[data-role="day"]');
     if (!items.length) return;
 
-    const todayIndex = days.findIndex((d) => d.isToday);
-    if (todayIndex === -1) return;
+    let selectedIndex = days.findIndex((d) => isSelected(d.date));
 
-    const todayEl = items[todayIndex];
-    if (!todayEl) return;
+    // если выбранная дата вне диапазона, центрируем сегодня
+    if (selectedIndex === -1) {
+      selectedIndex = days.findIndex((d) => d.isToday);
+    }
+
+    if (selectedIndex === -1) return;
+
+    const selectedEl = items[selectedIndex];
+    if (!selectedEl) return;
 
     const containerRect = container.getBoundingClientRect();
-    const itemRect = todayEl.getBoundingClientRect();
+    const itemRect = selectedEl.getBoundingClientRect();
 
     const offset =
       itemRect.left -
@@ -64,7 +80,7 @@ export const DateStrip: React.FC<DateStripProps> = ({ selectedDate, onSelectDate
       left: container.scrollLeft + offset,
       behavior: 'smooth',
     });
-  }, [days]);
+  }, [days, selectedDate]);
 
   return (
     <div ref={scrollRef} className="w-full overflow-x-auto no-scrollbar py-2 pl-4">

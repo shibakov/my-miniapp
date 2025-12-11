@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
 
 interface BottomSheetProps {
   isOpen: boolean;
@@ -51,6 +52,9 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
 }) => {
   const sheetRef = useRef<HTMLDivElement | null>(null);
   const [dragY, setDragY] = useState(0);
+
+  // Блокируем скролл фона, пока шторка открыта
+  useBodyScrollLock(isOpen);
   const startYRef = useRef<number | null>(null);
   const isDraggingRef = useRef(false);
 
@@ -148,7 +152,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
     >
       <div
         ref={sheetRef}
-        className={`bg-ios-bg w-full max-w-sm rounded-t-[32px] sm:rounded-[32px] shadow-2xl h-[85vh] sm:h-auto flex flex-col overflow-hidden transform transition-transform duration-200 ${className}`}
+        className={`bg-ios-bg w-full max-w-sm rounded-t-[32px] sm:rounded-[32px] shadow-2xl min-h-[60vh] max-h-[80vh] sm:h-auto flex flex-col overflow-hidden transform transition-transform duration-200 ${className}`}
         style={{ transform: `translateY(${dragY}px)` }}
         onClick={(e) => e.stopPropagation()}
         onTouchStart={handleTouchStart}
@@ -201,7 +205,9 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
         )}
 
         {/* Content */}
-        <div className={`flex-1 overflow-y-auto no-scrollbar px-4 pb-6 ${contentClassName}`}>
+        <div
+          className={`flex-1 overflow-y-auto no-scrollbar px-4 pb-6 pb-safe overscroll-contain ${contentClassName}`}
+        >
           {children}
         </div>
       </div>

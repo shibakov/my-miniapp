@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import GramsPicker from "@/components/GramsPicker";
+import { GramsStepper } from "@/new-ui/GramsStepper";
 import { SwipeableItem } from "@/new-ui/SwipeableItem";
 import {
   getHistoryDays,
@@ -67,10 +67,7 @@ export default function HistoryPage({ onStatsChanged }: HistoryPageProps) {
     return diffDays === 0 || diffDays === 1;
   })();
 
-  const [gramsPickerItem, setGramsPickerItem] = useState<{
-    logItemId: string;
-    currentGrams: number;
-  } | null>(null);
+  const [updatingGramsId, setUpdatingGramsId] = useState<string | null>(null);
 
   const [editNutritionItem, setEditNutritionItem] =
     useState<HistoryProductItem | null>(null);
@@ -121,16 +118,14 @@ export default function HistoryPage({ onStatsChanged }: HistoryPageProps) {
     loadDay();
   }, [selectedDate]);
 
-  const handleOpenGramsPicker = (item: HistoryProductItem) => {
-    if (!isEditableDay) return;
-    setGramsPickerItem({ logItemId: item.log_item_id, currentGrams: item.grams });
-  };
+  const handleInlineGramsChange = async (
+    item: HistoryProductItem,
+    grams: number
+  ) => {
+    if (!selectedDate || !isEditableDay) return;
 
-  const handleGramsChange = async (grams: number) => {
-    if (!gramsPickerItem || !selectedDate) return;
-
-    const { logItemId } = gramsPickerItem;
-    setGramsPickerItem(null);
+    const logItemId = item.log_item_id;
+    setUpdatingGramsId(logItemId);
 
     try {
       await updateLogItem({ log_item_id: logItemId, grams });
@@ -144,6 +139,8 @@ export default function HistoryPage({ onStatsChanged }: HistoryPageProps) {
     } catch (e) {
       console.error("Ошибка обновления граммов", e);
       // TODO: можно показать тост/ошибку
+    } finally {
+      setUpdatingGramsId(null);
     }
   };
 
@@ -360,15 +357,13 @@ export default function HistoryPage({ onStatsChanged }: HistoryPageProps) {
                                 </div>
                               </div>
                               <div className="flex flex-col items-end gap-1">
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  className="h-7 rounded-full px-2 text-[10px]"
-                                  onClick={() => handleOpenGramsPicker(item)}
-                                  disabled={!isEditableDay}
-                                >
-                                  Изменить граммы
-                                </Button>
+                                <GramsStepper
+                                  value={item.grams}
+                                  disabled={!isEditableDay || updatingGramsId === item.log_item_id}
+                                  onChange={(newGrams) =>
+                                    handleInlineGramsChange(item, newGrams)
+                                  }
+                                />
                                 {item.dict_id && (
                                   <Button
                                     type="button"
@@ -399,19 +394,10 @@ export default function HistoryPage({ onStatsChanged }: HistoryPageProps) {
         </section>
       </main>
 
-      {/* GramsPicker для изменения граммовки в истории */}
-      {gramsPickerItem && (
-        <GramsPicker
-          value={gramsPickerItem.currentGrams}
-          onChange={(val) => handleGramsChange(val)}
-          onClose={() => setGramsPickerItem(null)}
-        />
-      )}
-
       {/* Модалка редактирования КБЖУ продукта в словаре */}
       {editNutritionItem && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40">
-          <div className="w-full bg-white rounded-t-3xl p-4 pb-5 shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 animate-fade-in">
+          <div className="w-full bg-white rounded-t-3xl p-4 pb-5 shadow-xl animate-slide-up">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-semibold text-slate-900">
                 Исправить КБЖУ
